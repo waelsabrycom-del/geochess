@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>سجل البطولات - الشطرنج الجغرافي</title>
+<link href="assets/local/fonts/local-fonts.css" rel="stylesheet"/>
+<script src="assets/local/tailwind-cdn.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#eecd2b",
+                        "background-light": "#f8f8f6",
+                        "background-dark": "#181711",
+                        "surface-dark": "#23221b",
+                        "accent-gold": "#C6A618",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Cairo", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Cairo', 'Space Grotesk', sans-serif;
+        }
+</style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen flex flex-col font-body">
+<script>
+    // التحقق من تسجيل الدخول
+    document.addEventListener('DOMContentLoaded', () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            window.location.href = 'تسجيل دخول.html';
+        } else {
+            loadMyTournaments();
+        }
+    });
+
+    // تحديث البطولات عند العودة للصفحة من صفحة أخرى
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            console.log('📝 تم العودة لصفحة سجل البطولات، جاري تحديث البيانات...');
+            loadMyTournaments();
+        }
+    });
+
+    const API_URL = `${window.location.origin}/api`;
+
+    function normalizeId(value) {
+        if (value === undefined || value === null) return '';
+        return String(value).trim();
+    }
+
+    function resolveTournamentName(source) {
+        const raw = String(
+            source?.tournament_name || source?.name || source?.title || ''
+        ).trim();
+        if (!raw || raw === 'بدون اسم') return '';
+        return raw;
+    }
+
+    function getAdminCreatedTournaments() {
+        return JSON.parse(localStorage.getItem('adminCreatedTournaments')) || [];
+    }
+
+    function setAdminCreatedTournaments(list) {
+        localStorage.setItem('adminCreatedTournaments', JSON.stringify(list));
+    }
+
+    function migrateUnnamedAdminTournaments(savedList, preferredSources = []) {
+        if (!Array.isArray(savedList) || savedList.length === 0) return { list: savedList || [], changed: false };
+
+        const sourceMap = new Map();
+        preferredSources.forEach(item => {
+            const id = normalizeId(item?.tournament_id || item?.id);
+            const name = resolveTournamentName(item);
+            if (id && name) {
+                sourceMap.set(id, name);
+            }
+        });
+
+        let changed = false;
+        const migrated = savedList.map(item => {
+            const id = normalizeId(item?.tournament_id || item?.id);
+            const currentName = resolveTournamentName(item);
+            if (currentName || !id) return item;
+
+            const recoveredName = sourceMap.get(id);
+            if (!recoveredName) return item;
+
+            changed = true;
+            return {
+                ...item,
+                tournament_name: recoveredName
+            };
+        });
+
+        return { list: migrated, changed };
+    }
+
+    function showHistoryNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-bold ${
+            type === 'error' ? 'bg-red-600' : 'bg-green-600'
+        }`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.4s';
+            setTimeout(() => notification.remove(), 400);
+        }, 2000);
+    }
+
+    async function loadMyTournaments() {
+        try {
+            const container = document.getElementById('tournaments-list');
+            if (!container) return;
+
+            // عرض رسالة التحميل
+            container.innerHTML = '<div class="text-center py-8"><p class="text-slate-400">جاري تحميل البطولات...</p></div>';
+
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                container.innerHTML = '<div class="text-center py-8"><p class="text-red-400">يرجى تسجيل الدخول</p></div>';
+                return;
+            }
+
+            const userType = localStorage.getItem('userType') || 'player';
+            const currentUserId = normalizeId(localStorage.getItem('userId'));
+
+            if (userType === 'admin') {
+                console.log('👑 تحميل بطولات المدير من API مع fallback محلي...');
+
+                let apiCreatedTournaments = [];
+                let adminApiFetchSucceeded = false;
+                try {
+                    const response = await fetch(`${API_URL}/tournaments/my-created`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        adminApiFetchSucceeded = true;
+                        const data = await response.json();
+                        apiCreatedTournaments = (data.tournaments || [])
+                            .filter(t => !currentUserId || normalizeId(t.creator_id) === currentUserId)
+                            .map(t => ({
+                                tournament_id: normalizeId(t.tournament_id),
+                                tournament_name: resolveTournamentName(t) || 'بدون اسم',
+                                start_date: t.start_date || new Date().toISOString(),
+                                end_date: t.end_date || new Date().toISOString(),
+                                max_participants: t.max_participants || 16,
+                                prizes: t.prizes || '',
+                                status: t.status || 'قادمة',
+                                created_at: t.created_at || new Date().toISOString(),
+                                creator_id: t.creator_id || currentUserId
+                            }))
+                            .filter(t => t.tournament_id);
+
+                        console.log(`✅ تم جلب ${apiCreatedTournaments.length} بطولة للمدير من API`);
+                    } else {
+                        console.warn('⚠️ فشل جلب بطولات المدير من API، سيتم استخدام البيانات المحلية');
+                    }
+                } catch (apiError) {
+                    console.warn('⚠️ خطأ الاتصال بـ API لبطولات المدير:', apiError.message);
+                }
+
+                const upcomingTournaments = JSON.parse(localStorage.getItem('upcomingTournaments')) || [];
+                const normalizedUpcoming = upcomingTournaments
+                    .filter(t => !currentUserId || normalizeId(t.creatorId) === currentUserId || !t.creatorId)
+                    .map(t => ({
+                        tournament_id: normalizeId(t.id),
+                        tournament_name: resolveTournamentName(t) || 'بدون اسم',
+                        start_date: t.startDate || new Date().toISOString(),
+                        end_date: t.endDate || new Date().toISOString(),
+                        max_participants: t.participants || 16,
+                        prizes: t.prizes || '',
+                        status: t.status || 'قادمة',
+                        created_at: t.createdAt || new Date().toISOString(),
+                        creator_id: t.creatorId || currentUserId
+                    }))
+                    .filter(t => t.tournament_id);
+
+                const savedAdminTournaments = getAdminCreatedTournaments();
+                const adminMap = new Map();
+
+                if (adminApiFetchSucceeded) {
+                    apiCreatedTournaments.forEach(t => adminMap.set(normalizeId(t.tournament_id), t));
+                } else {
+                    savedAdminTournaments.forEach(t => adminMap.set(normalizeId(t.tournament_id), t));
+                    normalizedUpcoming.forEach(t => adminMap.set(normalizeId(t.tournament_id), t));
+                    apiCreatedTournaments.forEach(t => adminMap.set(normalizeId(t.tournament_id), t));
+                }
+
+                const adminTournaments = Array.from(adminMap.values());
+
+                const migration = migrateUnnamedAdminTournaments(adminTournaments, [
+                    ...apiCreatedTournaments,
+                    ...normalizedUpcoming,
+                    ...savedAdminTournaments
+                ]);
+
+                if (migration.changed) {
+                    console.log('♻️ تم ترحيل أسماء بطولات قديمة كانت محفوظة كـ "بدون اسم"');
+                }
+
+                const finalAdminTournaments = migration.list;
+                setAdminCreatedTournaments(finalAdminTournaments);
+
+                if (finalAdminTournaments.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-12">
+                            <span class="material-symbols-outlined text-6xl text-primary/30 mb-4">event_note</span>
+                            <p class="text-slate-400 text-lg">لم تُنشئ أي بطولات حتى الآن</p>
+                            <p class="text-slate-500 text-sm mt-2">ابدأ بإنشاء بطولة جديدة من لوحة التحكم</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = finalAdminTournaments.map(tournament => {
+                    const startDate = new Date(tournament.start_date);
+                    const endDate = new Date(tournament.end_date);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+
+                    const status = startDate <= today && endDate >= today ? 'جارية' :
+                                   startDate > today ? 'قادمة' : 'انتهت';
+                    const statusColor = status === 'جارية' ? 'bg-yellow-500/20 text-yellow-400' :
+                                       status === 'قادمة' ? 'bg-green-500/20 text-green-400' :
+                                       'bg-red-500/20 text-red-400';
+
+                    const formattedStartDate = startDate.toLocaleDateString('ar-SA', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+
+                    const formattedEndDate = endDate.toLocaleDateString('ar-SA', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+
+                    const tournamentId = normalizeId(tournament.tournament_id);
+                    const actions = `<div class="flex items-center gap-2">
+                        <button onclick="goToTournamentDetails('${tournamentId}')" class="px-4 py-2 bg-primary hover:bg-accent-gold text-background-dark rounded-lg text-xs font-bold transition-colors">دخول</button>
+                        <button onclick="goToEditTournament('${tournamentId}')" class="px-4 py-2 border border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-colors">تعديل</button>
+                        <button onclick="deleteAdminTournamentFromHistory('${tournamentId}')" class="px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500 hover:text-white rounded-lg text-xs font-bold transition-colors">حذف</button>
+                    </div>`;
+
+                    return `
+                        <div class="bg-surface-dark border border-[#393628] rounded-lg p-6 hover:border-primary/50 transition-all group">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex-1">
+                                    <h3 class="text-white font-bold text-lg mb-1">${resolveTournamentName(tournament) || 'بدون اسم'}</h3>
+                                    <p class="text-slate-400 text-sm">📅 ${formattedStartDate} إلى ${formattedEndDate}</p>
+                                </div>
+                                <span class="inline-block px-3 py-1 rounded-full text-xs font-bold ${statusColor}">
+                                    ${status}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between mt-4">
+                                <div class="flex items-center gap-4 text-sm">
+                                    <div class="flex items-center gap-1 text-slate-400">
+                                        <span>👥</span>
+                                        <span>${tournament.max_participants || '16'} لاعب</span>
+                                    </div>
+                                    ${tournament.prizes ? `<div class="flex items-center gap-1 text-primary">
+                                        <span>🏆</span>
+                                        <span>${tournament.prizes}</span>
+                                    </div>` : ''}
+                                </div>
+                                ${actions}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                return;
+            }
+
+            console.log('📬 جاري تحميل البطولات من API و localStorage...');
+
+            let tournaments = [];
+            let apiFetchSucceeded = false;
+
+            // جلب البطولات من API
+            try {
+                const response = await fetch(`${API_URL}/tournaments/my-invitations`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    apiFetchSucceeded = true;
+                    const data = await response.json();
+                    // Filter to show only ACCEPTED invitations in tournament history
+                    tournaments = (data.invitations || []).filter(inv => inv.status === 'accepted');
+                    console.log(`✅ تم جلب ${tournaments.length} بطولة مقبولة من API`);
+                    
+                    if (tournaments.length > 0) {
+                        console.log('📋 البطولات المقبولة:', tournaments);
+                    }
+                } else {
+                    console.warn('⚠️ فشل جلب البطولات من API');
+                }
+            } catch (apiError) {
+                console.warn('⚠️ خطأ في الاتصال بـ API:', apiError.message);
+            }
+
+            // إضافة البطولات المقبولة من localStorage
+            const acceptedFromStorage = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+            const acceptedInvitationIds = JSON.parse(localStorage.getItem('acceptedInvitationIds')) || [];
+            console.log(`📦 البطولات المحفوظة في الجهاز: ${acceptedFromStorage.length}`);
+            console.log('💾 بيانات البطولات المحفوظة:', acceptedFromStorage);
+            console.log(`📋 معرّفات الدعوات المقبولة: ${acceptedInvitationIds.length}`, acceptedInvitationIds);
+
+            // دمج البطولات: تجنب التكرار بناءً على tournament_id
+            const tournamentsMap = new Map();
+            
+            // أضف البطولات من API أولاً
+            tournaments.forEach(t => {
+                tournamentsMap.set(String(t.tournament_id), t);
+            });
+            
+            // أضف البطولات من localStorage فقط عند فشل API
+            if (!apiFetchSucceeded) {
+                acceptedFromStorage.forEach(t => {
+                    const id = String(t.tournament_id);
+                    if (!tournamentsMap.has(id)) {
+                        tournamentsMap.set(id, t);
+                    }
+                });
+            }
+            
+            // إذا كانت البطولات الأخرى موجودة وفي قائمة الدعوات المقبولة، أضفها
+            if (!apiFetchSucceeded && tournaments.length > 0 && acceptedInvitationIds.length > 0) {
+                console.log('🔍 محاولة مطابقة الدعوات المقبولة مع البطولات...');
+                tournaments.forEach(t => {
+                    if (acceptedInvitationIds.includes(String(t.id))) {
+                        const id = String(t.tournament_id);
+                        if (!tournamentsMap.has(id)) {
+                            t.status = 'accepted';
+                            t.accepted_at = new Date().toISOString();
+                            tournamentsMap.set(id, t);
+                            console.log('✅ تم إضافة بطولة معتمدة:', t.tournament_name);
+                        }
+                    }
+                });
+            }
+
+            const allTournaments = Array.from(tournamentsMap.values());
+            const hiddenTournamentIds = JSON.parse(localStorage.getItem('hiddenTournamentIds')) || [];
+            const hiddenIdSet = new Set(hiddenTournamentIds.map(id => String(id)));
+            const visibleTournaments = allTournaments.filter(t => !hiddenIdSet.has(String(t.tournament_id)));
+
+            console.log(`🎯 إجمالي البطولات بعد الدمج: ${allTournaments.length}`);
+            if (hiddenIdSet.size > 0) {
+                console.log(`🙈 تم إخفاء ${hiddenIdSet.size} بطولة من السجل`);
+            }
+
+            if (visibleTournaments.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12">
+                        <span class="material-symbols-outlined text-6xl text-primary/30 mb-4">event_note</span>
+                        <p class="text-slate-400 text-lg">لم تنضم لأي بطولات حتى الآن</p>
+                        <p class="text-slate-500 text-sm mt-2">ابدأ في البحث عن البطولات المتاحة</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // عرض البطولات
+            container.innerHTML = visibleTournaments.map(tournament => {
+                const startDate = new Date(tournament.start_date);
+                const endDate = new Date(tournament.end_date);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const status = startDate <= today && endDate >= today ? 'جارية' : 
+                               startDate > today ? 'قادمة' : 'انتهت';
+                const statusColor = status === 'جارية' ? 'bg-yellow-500/20 text-yellow-400' :
+                                   status === 'قادمة' ? 'bg-green-500/20 text-green-400' : 
+                                   'bg-red-500/20 text-red-400';
+
+                const formattedStartDate = startDate.toLocaleDateString('ar-SA', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                const formattedEndDate = endDate.toLocaleDateString('ar-SA', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                // عرض تاريخ القبول إن كان موجود
+                const acceptedAtDisplay = tournament.accepted_at 
+                    ? `<p class="text-slate-500 text-xs mt-1">✅ قُبِلت في: ${new Date(tournament.accepted_at).toLocaleDateString('ar-SA')}</p>`
+                    : '';
+
+                const tournamentId = String(tournament.tournament_id);
+                const deleteButton = `<button onclick="deleteTournamentFromHistory('${tournamentId}')" class="px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500 hover:text-white rounded-lg text-xs font-bold transition-colors">حذف</button>`;
+
+                // زر الدخول يظهر للبطولات السارية والقادمة فقط
+                const actionButton = (status === 'جارية' || status === 'قادمة')
+                    ? `<div class="flex items-center gap-2">
+                        <button onclick="goToTournamentDetails('${tournamentId}')" class="px-4 py-2 bg-primary hover:bg-accent-gold text-background-dark rounded-lg text-xs font-bold transition-colors">دخول</button>
+                        ${deleteButton}
+                    </div>`
+                    : deleteButton;
+
+                return `
+                    <div class="bg-surface-dark border border-[#393628] rounded-lg p-6 hover:border-primary/50 transition-all group">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <h3 class="text-white font-bold text-lg mb-1">${tournament.tournament_name}</h3>
+                                <p class="text-slate-400 text-sm">📅 ${formattedStartDate} إلى ${formattedEndDate}</p>
+                                ${acceptedAtDisplay}
+                            </div>
+                            <span class="inline-block px-3 py-1 rounded-full text-xs font-bold ${statusColor}">
+                                ${status}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between mt-4">
+                            <div class="flex items-center gap-4 text-sm">
+                                <div class="flex items-center gap-1 text-slate-400">
+                                    <span>👥</span>
+                                    <span>${tournament.max_participants || '16'} لاعب</span>
+                                </div>
+                                ${tournament.prizes ? `<div class="flex items-center gap-1 text-primary">
+                                    <span>🏆</span>
+                                    <span>${tournament.prizes}</span>
+                                </div>` : ''}
+                            </div>
+                            ${actionButton}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('❌ خطأ في تحميل البطولات:', error);
+            console.error('تفاصيل الخطأ:', error.message);
+            const container = document.getElementById('tournaments-list');
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center py-8">
+                        <p class="text-red-400">❌ خطأ في تحميل البطولات</p>
+                        <p class="text-red-300 text-sm mt-2">${error.message}</p>
+                        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-primary text-background-dark rounded-lg font-bold hover:bg-accent-gold transition-colors">
+                            إعادة محاولة
+                        </button>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    function deleteTournamentFromHistory(tournamentId) {
+        const normalizedId = String(tournamentId || '').trim();
+        if (!normalizedId) {
+            console.warn('⚠️ لا يمكن حذف البطولة: معرف غير صالح');
+            return;
+        }
+
+        const confirmed = confirm('هل تريد حذف هذه البطولة من السجل؟');
+        if (!confirmed) return;
+
+        const hiddenTournamentIds = JSON.parse(localStorage.getItem('hiddenTournamentIds')) || [];
+        if (!hiddenTournamentIds.includes(normalizedId)) {
+            hiddenTournamentIds.push(normalizedId);
+            localStorage.setItem('hiddenTournamentIds', JSON.stringify(hiddenTournamentIds));
+        }
+
+        // تنظيف العناصر المحلية لتقليل الذاكرة، دون التأثير على بيانات السيرفر
+        const acceptedTournaments = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+        const filteredAccepted = acceptedTournaments.filter(t => String(t.tournament_id) !== normalizedId);
+        localStorage.setItem('acceptedTournaments', JSON.stringify(filteredAccepted));
+
+        loadMyTournaments();
+    }
+
+    function saveAdminTournament(tournamentId) {
+        const normalizedId = normalizeId(tournamentId);
+        if (!normalizedId) {
+            showHistoryNotification('⚠️ لا يمكن حفظ البطولة: معرف غير صالح', 'error');
+            return;
+        }
+
+        const saved = getAdminCreatedTournaments();
+        const exists = saved.find(t => normalizeId(t.tournament_id) === normalizedId);
+
+        if (exists) {
+            showHistoryNotification('✅ البطولة محفوظة بالفعل');
+            return;
+        }
+
+        const upcomingTournaments = JSON.parse(localStorage.getItem('upcomingTournaments')) || [];
+        const source = upcomingTournaments.find(t =>
+            normalizeId(t.id) === normalizedId || normalizeId(t.tournament_id) === normalizedId
+        );
+
+        if (!source) {
+            showHistoryNotification('⚠️ لم يتم العثور على بيانات البطولة للحفظ', 'error');
+            return;
+        }
+
+        const normalizedTournamentName = String(
+            source.name || source.tournament_name || source.title || ''
+        ).trim();
+
+        saved.push({
+            tournament_id: normalizeId(source.id || source.tournament_id),
+            tournament_name: normalizedTournamentName || 'بدون اسم',
+            start_date: source.startDate || source.start_date || new Date().toISOString(),
+            end_date: source.endDate || source.end_date || new Date().toISOString(),
+            max_participants: source.participants || source.max_participants || 16,
+            prizes: source.prizes || '',
+            status: source.status || 'قادمة',
+            created_at: source.createdAt || source.created_at || new Date().toISOString(),
+            creator_id: source.creatorId || source.creator_id || normalizeId(localStorage.getItem('userId'))
+        });
+
+        setAdminCreatedTournaments(saved);
+        showHistoryNotification('✅ تم حفظ البطولة بنجاح');
+        loadMyTournaments();
+    }
+
+    async function deleteAdminTournamentFromHistory(tournamentId) {
+        const normalizedId = normalizeId(tournamentId);
+        if (!normalizedId) {
+            showHistoryNotification('⚠️ لا يمكن حذف البطولة: معرف غير صالح', 'error');
+            return;
+        }
+
+        const confirmed = confirm('هل تريد حذف هذه البطولة من سجل المدير؟');
+        if (!confirmed) return;
+
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showHistoryNotification('⚠️ جلسة غير صالحة، يرجى تسجيل الدخول', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/tournaments/${encodeURIComponent(normalizedId)}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                showHistoryNotification(result.message || '❌ فشل حذف البطولة من السيرفر', 'error');
+                return;
+            }
+        } catch (error) {
+            console.error('❌ خطأ أثناء حذف البطولة من السيرفر:', error);
+            showHistoryNotification('❌ تعذر الاتصال بالسيرفر أثناء الحذف', 'error');
+            return;
+        }
+
+        const updatedSaved = getAdminCreatedTournaments().filter(t => normalizeId(t.tournament_id) !== normalizedId);
+        setAdminCreatedTournaments(updatedSaved);
+
+        const upcomingTournaments = JSON.parse(localStorage.getItem('upcomingTournaments')) || [];
+        const updatedUpcoming = upcomingTournaments.filter(t => normalizeId(t.id) !== normalizedId);
+        localStorage.setItem('upcomingTournaments', JSON.stringify(updatedUpcoming));
+
+        const acceptedTournaments = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+        const updatedAccepted = acceptedTournaments.filter(t => normalizeId(t.tournament_id) !== normalizedId);
+        localStorage.setItem('acceptedTournaments', JSON.stringify(updatedAccepted));
+
+        const hiddenTournamentIds = JSON.parse(localStorage.getItem('hiddenTournamentIds')) || [];
+        const updatedHidden = hiddenTournamentIds.filter(id => normalizeId(id) !== normalizedId);
+        localStorage.setItem('hiddenTournamentIds', JSON.stringify(updatedHidden));
+
+        showHistoryNotification('✅ تم حذف البطولة من السجل');
+        loadMyTournaments();
+    }
+
+    function goToTournamentDetails(tournamentId) {
+        window.location.href = `تفاصيل البطولة والمتابعة.html?tournamentId=${encodeURIComponent(tournamentId)}`;
+    }
+
+    function goToEditTournament(tournamentId) {
+        window.location.href = `إنشاء بطولة جديدة.html?edit=${encodeURIComponent(tournamentId)}`;
+    }
+
+    function goToProfile() {
+        window.location.href = 'ملف اللاعب الشخصي.html';
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = 'تسجيل دخول.html';
+    }
+</script>
+
+<!-- الهيدر -->
+<div class="border-b border-[#393628] bg-background-dark/95 backdrop-blur sticky top-0 z-50">
+<div class="px-6 lg:px-12 py-3 flex items-center justify-between max-w-[1440px] mx-auto w-full">
+<div class="flex items-center gap-4 text-white">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">castle</span>
+</div>
+<h1 class="text-white text-xl font-bold leading-tight tracking-wide hidden sm:block">الشطرنج الجغرافي</h1>
+</div>
+<nav class="hidden lg:flex items-center gap-8 mx-8">
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="index.html">الرئيسية</a>
+<a class="text-primary text-sm font-bold leading-normal border-b-2 border-primary pb-0.5" href="#">سجل البطولات</a>
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="ملف اللاعب الشخصي.html">الملف الشخصي</a>
+</nav>
+<div class="flex items-center gap-3 lg:gap-4">
+<button class="hidden md:flex items-center justify-center rounded-lg h-10 px-5 border border-primary/30 text-primary hover:bg-primary hover:text-[#181711] transition-all text-sm font-bold leading-normal group" onclick="logout()" title="تسجيل الخروج">
+<span class="truncate ml-2">خروج</span>
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">logout</span>
+</button>
+</div>
+</div>
+</div>
+
+<!-- المحتوى الرئيسي -->
+<main class="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="mb-8 flex flex-wrap items-center justify-between gap-4">
+<div>
+<h2 class="text-white text-3xl font-bold leading-tight">سجل البطولات</h2>
+<p class="text-[#b9b49d] text-sm mt-2">كل البطولات التي أنشأتها</p>
+</div>
+<button class="flex items-center gap-2 rounded-lg border border-primary/30 px-4 py-2 text-primary hover:bg-primary hover:text-[#181711] transition-all text-sm font-bold" onclick="loadMyTournaments()" type="button" title="تحديث سجل البطولات">
+<span>تحديث</span>
+<span class="material-symbols-outlined text-lg">refresh</span>
+</button>
+</div>
+
+<div id="tournaments-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- سيتم ملء هذا الجزء بالبطولات -->
+</div>
+</main>
+
+<!-- التذييل -->
+<footer class="mt-auto py-8 border-t border-[#393628] text-center text-slate-500 text-sm">
+<p>© 2024 الشطرنج الجغرافي. جميع الحقوق محفوظة.</p>
+</footer>
+
+</body>
+</html>

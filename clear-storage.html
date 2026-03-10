@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Storage</title>
+<link href="assets/local/fonts/local-fonts.css" rel="stylesheet"/>
+</head>
+<body>
+    <h1>جاري مسح البيانات...</h1>
+    <script>
+        // مسح جميع البيانات المحفوظة
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // عرض رسالة تأكيد
+        console.log('✅ تم مسح جميع البيانات المحفوظة');
+        
+        // إعادة التوجيه إلى صفحة إنشاء المباراة
+        setTimeout(() => {
+            window.location.href = '/إنشاء%20مباراة.html';
+        }, 1000);
+    </script>
+</body>
+</html>

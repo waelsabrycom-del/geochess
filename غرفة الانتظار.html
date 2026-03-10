@@ -1,0 +1,3204 @@
+<!DOCTYPE html>
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>الشطرنج الجغرافي - غرفة الانتظار</title>
+<link href="assets/local/fonts/local-fonts.css" rel="stylesheet"/>
+<script src="assets/local/tailwind-cdn.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#eecd2b",
+                        "background-light": "#f8f8f6",
+                        "background-dark": "#181711",
+                        "surface-dark": "#23221b",
+                        "surface-darker": "#1f1e16",
+                        "accent-gold": "#C6A618",
+                        "status-green": "#4ade80",
+                        "status-red": "#ef4444",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Cairo", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>body {
+    font-family: "Cairo", "Space Grotesk", sans-serif
+    }
+.font-numbers {
+    font-family: "Space Grotesk", sans-serif
+    }
+.map-pattern {
+    background-color: #181711;
+    background-image: url(assets/local/images/map-pattern.jpg)
+    }.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #1f1e16; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #393628; 
+    border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #eecd2b; 
+}
+</style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen flex flex-col font-body map-pattern">
+<div class="border-b border-[#393628] bg-background-dark/95 backdrop-blur sticky top-0 z-50">
+<div class="px-6 lg:px-12 py-3 flex items-center justify-between max-w-[1440px] mx-auto w-full">
+<div class="flex items-center gap-4 text-white">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">castle</span>
+</div>
+<h1 class="text-white text-xl font-bold leading-tight tracking-wide hidden sm:block">الشطرنج الجغرافي</h1>
+</div>
+<nav class="hidden lg:flex items-center gap-8 mx-8">
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="index.html">الرئيسية</a>
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="ملف اللاعب الشخصي.html">الملف الشخصي</a>
+<a class="text-primary text-sm font-bold leading-normal border-b-2 border-primary pb-0.5" href="#">غرفة الانتظار</a>
+</nav>
+<div class="flex items-center gap-4 lg:gap-6">
+<button class="hidden md:flex items-center justify-center rounded-lg h-10 px-5 border border-primary/30 text-primary hover:bg-primary hover:text-[#181711] transition-all text-sm font-bold leading-normal group" onclick="logout()" title="تسجيل الخروج">
+<span class="truncate ml-2">خروج</span>
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">logout</span>
+</button>
+<div id="header-avatar" class="bg-center bg-no-repeat bg-cover rounded-full size-10 border-2 border-[#393628] cursor-pointer hover:border-primary transition-colors" data-alt="User avatar thumbnail showing a tactical commander" style='background-image: url("assets/local/images/default-avatar.jpg");'></div>
+</div>
+</div>
+</div>
+<main class="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+<div>
+<div class="flex items-center gap-3 text-[#b9b49d] text-sm font-bold mb-2">
+</div>
+<h2 class="text-white text-3xl lg:text-4xl font-bold leading-tight flex items-center gap-3">
+            غرفة الانتظار <span class="text-[#b9b49d] font-light mx-2">-</span> <span id="room-title-name" class="text-gray-400">جاري التحميل...</span>
+</h2>
+<div id="manager-readonly-note" class="hidden mt-3 bg-accent-gold/10 border border-accent-gold/40 text-black rounded-lg px-4 py-3 text-sm font-bold">
+            أنت مدير هذه البطولة. يمكنك إدارة الغرفة وإرسال الدعوات، لكن لا يمكنك المشاركة كلاعب في البطولة التي أنشأتها.
+</div>
+</div>
+
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
+<div class="lg:col-span-8 flex flex-col gap-6">
+<div class="bg-surface-dark/50 backdrop-blur rounded-xl border border-[#393628] p-1 flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-[#b9b49d] px-3">groups</span>
+<span class="text-white font-bold text-sm py-2">قائمة اللاعبين</span>
+</div>
+<div id="admin-card-mount" class="hidden"></div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="bg-surface-dark border-2 border-primary/30 rounded-xl p-5 relative overflow-hidden group hover:border-primary transition-colors">
+<div class="absolute top-3 left-3 bg-primary text-[#181711] text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">crown</span>
+<span>المضيف</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<div id="host-avatar" class="size-16 rounded-full bg-cover bg-center border-2 border-primary" style='background-image: url("assets/local/images/default-avatar.jpg");'></div>
+<div class="absolute -bottom-1 -right-1 bg-surface-dark rounded-full p-0.5">
+<span class="material-symbols-outlined text-status-green filled text-xl bg-surface-dark rounded-full">check_circle</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<h3 id="host-name" class="text-white font-bold text-lg">جاري التحميل...</h3>
+<div id="host-color-flag" class="w-5 h-5 rounded border-2 border-white/80 flex items-center justify-center flex-shrink-0">
+<div class="w-3 h-3 bg-white rounded-full"></div>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span id="host-level" class="text-primary text-xs font-bold">المستوى -</span>
+<span class="size-1 bg-[#393628] rounded-full"></span>
+<span id="host-status" class="text-status-green text-xs font-bold">جاهز</span>
+<button id="chat-with-host-btn" class="text-primary hover:text-accent-gold transition-colors hidden mr-2" title="فتح الشات" onclick="openChatWithPlayer()">
+<span class="material-symbols-outlined text-lg">chat</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-5 relative overflow-hidden group hover:border-[#b9b49d] transition-colors" id="opponent-card">
+<div class="absolute top-3 left-3 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">person</span>
+<span>الضيف</span>
+</div>
+<div class="absolute top-3 right-3">
+<button id="kick-guest-btn" class="text-[#b9b49d] hover:text-status-red transition-colors" title="طرد اللاعب">
+<span class="material-symbols-outlined text-xl">block</span>
+</button>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<div class="size-16 rounded-full bg-cover bg-center border-2 border-[#b9b49d]" style="background-color: #2a2820;" id="opponent-avatar">
+<span class="material-symbols-outlined text-3xl text-white/50 w-full h-full flex items-center justify-center">person</span>
+</div>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<h3 id="opponent-name" class="text-white font-bold text-lg">في انتظار الضيف...</h3>
+<div id="opponent-color-flag" class="w-5 h-5 rounded border-2 border-white/80 flex items-center justify-center flex-shrink-0">
+<div class="w-3 h-3 bg-white rounded-full"></div>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span id="opponent-level" class="text-[#b9b49d] text-xs font-bold"></span>
+<span class="size-1 bg-[#393628] rounded-full"></span>
+<span id="opponent-status" class="text-[#b9b49d] text-xs font-bold">غير متصل</span>
+<button id="chat-with-guest-btn" class="text-primary hover:text-accent-gold transition-colors hidden mr-2" title="فتح الشات" onclick="openChatWithPlayer()">
+<span class="material-symbols-outlined text-lg">chat</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div id="guest-reserve-action-wrap" class="hidden mt-3">
+<button id="guest-reserve-action-btn" class="w-full flex items-center justify-center gap-2 rounded-lg h-11 border border-primary/70 bg-primary text-[#181711] hover:bg-primary/90 transition-all text-sm font-bold" type="button">
+<span class="material-symbols-outlined text-lg">tune</span>
+<span>استخدام قوة الإحتياط</span>
+</button>
+</div>
+<div class="bg-surface-darker/50 border-2 border-dashed border-[#393628] rounded-xl p-5 flex flex-col items-center justify-center min-h-[120px] group hover:border-primary/50 hover:bg-surface-darker transition-all cursor-pointer waiting-player-slot">
+<div class="size-12 rounded-full bg-[#1f1e16] flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[#b9b49d] opacity-50 text-2xl">add</span>
+</div>
+<span class="text-[#b9b49d] text-sm font-bold opacity-70 group-hover:opacity-100 transition-opacity">بانتظار انضمام لاعب...</span>
+</div>
+</div>
+<div id="group-chat-panel" class="hidden bg-surface-dark border border-[#393628] rounded-xl overflow-hidden">
+<div class="p-4 border-b border-[#393628] bg-surface-darker/50 flex items-center justify-between gap-3">
+<h3 class="text-white font-bold text-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">forum</span>
+<span id="group-chat-title">شات جماعي (اللاعب 1 + اللاعب 2 + المدير)</span>
+</h3>
+<span id="group-chat-status" class="text-[#b9b49d] text-xs">جاري التحضير...</span>
+</div>
+<div id="group-messages-container" class="h-64 overflow-y-auto custom-scrollbar p-4 bg-surface-dark"></div>
+<div class="p-4 border-t border-[#393628] flex gap-2 bg-surface-darker/30">
+<input id="group-message-input" type="text" placeholder="اكتب رسالة جماعية..." class="flex-1 bg-[#181711] border border-[#393628] rounded-lg px-4 py-2 text-white placeholder-[#b9b49d] focus:outline-none focus:border-primary"/>
+<button onclick="sendGroupChatMessage()" class="bg-primary hover:bg-accent-gold text-[#181711] font-bold px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">send</span>
+<span>إرسال</span>
+</button>
+</div>
+</div>
+<div class="lg:hidden mt-auto pt-6 border-t border-[#393628]">
+<button id="start-game-btn-mobile" class="w-full flex items-center justify-center rounded-lg h-14 bg-primary hover:bg-primary/90 transition-colors text-[#181711] text-lg font-bold shadow-[0_0_20px_rgba(238,206,43,0.3)] mb-4">
+<span class="ml-2">بدء المعركة</span>
+<span class="material-symbols-outlined filled">swords</span>
+</button>
+<button id="create-match-btn-mobile" class="w-full flex items-center justify-center rounded-lg h-12 border border-black/50 text-black dark:text-white hover:bg-black/10 transition-colors text-base font-bold">
+<span class="ml-2">إنشاء المباراة</span>
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</div>
+<div class="lg:col-span-4 flex flex-col gap-4 h-full min-h-[500px]">
+<!-- بانل الخريطة والإعدادات -->
+<div class="bg-surface-dark border border-[#393628] rounded-xl overflow-hidden">
+<div class="p-4 border-b border-[#393628] bg-surface-darker/50">
+<h3 class="text-white font-bold text-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">map</span>
+                    الخريطة والإعدادات
+                </h3>
+</div>
+<div class="p-4">
+<div class="mb-3">
+<span class="text-[#b9b49d] text-xs font-bold">معاينة الخريطة:</span>
+<div id="sidebar-map-preview" class="mt-2 flex justify-center items-center min-h-[100px] bg-[#181711] rounded-lg border border-[#393628]">
+<span class="text-[#b9b49d] text-xs">جاري التحميل...</span>
+</div>
+</div>
+<div class="mb-3">
+<span class="text-[#b9b49d] text-xs font-bold">اسم الخريطة:</span>
+<div id="sidebar-map-name" class="text-[#b9b49d] font-bold mt-1">جاري التحميل...</div>
+</div>
+<div>
+<span class="text-[#b9b49d] text-xs font-bold">إعدادات الجنود:</span>
+<div id="sidebar-settings" class="text-[#b9b49d] mt-1">جاري التحميل...</div>
+</div>
+<div id="tournament-match-code" class="hidden mt-3 text-[11px] text-[#b9b49d] font-numbers text-center break-all"></div>
+</div>
+</div>
+<!-- بانل دعوة اللاعبين -->
+<div id="invite-panel" class="bg-surface-dark border border-[#393628] rounded-xl flex flex-col flex-1 overflow-hidden">
+<div class="p-5 border-b border-[#393628] bg-surface-darker/50">
+<h3 class="text-white font-bold text-lg mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">person_add</span>
+                    دعوة لاعب
+                </h3>
+<div class="relative">
+<input class="w-full bg-[#181711] border border-[#393628] rounded-lg pl-4 pr-10 py-2.5 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder-[#b9b49d]/50" placeholder="بحث عن صديق..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#b9b49d] text-lg">search</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar p-2">
+<div class="space-y-1" id="players-list">
+<!-- سيتم ملء هذه القائمة ديناميكياً من قاعدة البيانات -->
+</div>
+</div>
+</div>
+
+<div id="guest-reserve-modal" class="fixed inset-0 z-50 bg-black/60 hidden items-center justify-center p-4">
+<div class="bg-surface-dark border border-[#393628] rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+<div class="flex items-center justify-between p-5 border-b border-[#393628]">
+<h3 class="text-white text-lg font-bold">إعدادات متقدمة (الجنود) - قوة جيش الإحتياط</h3>
+<button id="guest-reserve-close" class="text-[#b9b49d] hover:text-white transition-colors" type="button">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="p-5">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<h4 class="text-primary font-bold mb-3">قوة الجيش التي سوف تلعب بها</h4>
+<label class="block text-white mb-2">عدد الجندي المشاة
+<input id="guest-infantry" type="number" min="0" value="8" class="block w-full mt-1 rounded bg-surface-darker border border-[#393628] text-white px-3 py-2" />
+</label>
+<label class="block text-white mb-2">عدد الفارس
+<input id="guest-knight" type="number" min="0" value="2" class="block w-full mt-1 rounded bg-surface-darker border border-[#393628] text-white px-3 py-2" />
+</label>
+<label class="block text-white mb-2">عدد الرامي
+<input id="guest-archer" type="number" min="0" value="2" class="block w-full mt-1 rounded bg-surface-darker border border-[#393628] text-white px-3 py-2" />
+</label>
+<label class="block text-white mb-2">عدد المراكب
+<input id="guest-ship" type="number" min="0" value="2" class="block w-full mt-1 rounded bg-surface-darker border border-[#393628] text-white px-3 py-2" />
+</label>
+<label class="block text-white mb-2">عدد الوزير
+<input id="guest-wazir" type="number" min="0" value="1" class="block w-full mt-1 rounded bg-surface-darker border border-[#393628] text-white px-3 py-2" />
+</label>
+</div>
+<div>
+<h4 class="text-primary font-bold mb-3">القوة العددية لجيش الإحتياط</h4>
+<label class="block text-white mb-2">جيش الإحتياط
+<input id="guest-reserve-count" type="number" min="0" value="0" readonly class="block w-full mt-1 rounded bg-surface-darker border border-[#393628] text-white px-3 py-2" />
+</label>
+<p id="guest-reserve-message" class="text-red-400 text-sm mt-2 hidden">جيش الإحتياط غير موجود</p>
+</div>
+</div>
+<div class="mt-6 flex items-center justify-end gap-3">
+<button id="guest-reserve-cancel" class="px-5 py-2 rounded-lg border border-[#393628] text-[#b9b49d] hover:text-white hover:border-primary transition-colors" type="button">إلغاء</button>
+<button id="guest-reserve-save" class="px-5 py-2 rounded-lg bg-primary text-[#181711] font-bold hover:bg-primary/90 transition-colors" type="button">اعتماد قوة الإحتياط</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="hidden lg:flex items-center justify-between mt-8 pt-8 border-t border-[#393628]">
+<button id="create-match-btn-desktop" class="flex items-center gap-2 px-6 py-3 rounded-lg border border-black/50 text-black dark:text-white hover:bg-black/10 transition-colors font-bold group">
+<span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_forward</span>
+<span>إنشاء المباراة</span>
+</button>
+<div class="flex items-center gap-6">
+<div id="waiting-message" class="flex flex-col items-end">
+<span id="waiting-message-primary" class="text-white font-bold text-lg">بإنتظار الإذن ببدء المباراة</span>
+<span id="waiting-message-secondary" class="text-[#b9b49d] text-xs">يجب أن يكون الجميع جاهزاً لبدء المباراة</span>
+</div>
+<button id="start-game-btn" class="flex items-center justify-center rounded-lg h-14 px-10 bg-primary hover:bg-primary/90 transition-all hover:scale-105 text-[#181711] text-lg font-bold shadow-[0_0_20px_rgba(238,206,43,0.3)]">
+<span class="ml-3">بدء المعركة</span>
+<span class="material-symbols-outlined filled text-2xl">swords</span>
+</button>
+</div>
+</div>
+</main>
+<script src="zoom.js"></script>
+<script>
+      // دالة تسجيل الخروج
+      async function logout() {
+          const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+          const gameId = localStorage.getItem('gameId');
+          const API_URL = `${window.location.origin}/api`;
+          
+          console.log('🚪 محاولة تسجيل الخروج - gameId:', gameId, 'userId:', currentUserId);
+          
+          // إذا كان هناك لعبة نشطة، تحقق من كون المستخدم هو المضيف
+          if (gameId && currentUserId) {
+              try {
+                  const response = await fetch(`${API_URL}/games/${gameId}`);
+                  if (response.ok) {
+                      const result = await response.json();
+                      if (result.success && result.game) {
+                          const game = result.game;
+                          const isHost = currentUserId === parseInt(game.host_id, 10);
+                          
+                          console.log('🎮 بيانات اللعبة - hostId:', game.host_id, 'isHost:', isHost);
+                          
+                          // إذا كان المضيف، احذف اللعبة
+                          if (isHost) {
+                              console.log('🚪 المضيف يخرج - حذف اللعبة:', gameId);
+                              const deleteResponse = await fetch(`${API_URL}/games/delete/${gameId}`, {
+                                  method: 'DELETE',
+                                  headers: { 'Content-Type': 'application/json' }
+                              });
+                              
+                              if (deleteResponse.ok) {
+                                  console.log('✅ تم حذف اللعبة بنجاح');
+                              } else {
+                                  console.error('❌ فشل حذف اللعبة:', deleteResponse.status);
+                              }
+                          }
+                      }
+                  }
+              } catch (error) {
+                  console.error('خطأ في معالجة الخروج:', error);
+              }
+          }
+          
+          localStorage.clear();
+          window.location.href = 'تسجيل دخول.html';
+      }
+
+      // تحميل صورة المستخدم الحالي وتحديث الهيدر والمكان المناسب (مضيف/ضيف)
+      async function loadCurrentUserAvatar() {
+        try {
+          const authToken = localStorage.getItem('authToken');
+          const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+          const gameId = localStorage.getItem('gameId');
+          const adminMode = localStorage.getItem('adminMode_' + gameId);
+            
+          if (!authToken || !currentUserId) return;
+            
+          const API_URL = `${window.location.origin}/api`;
+
+          const showAdminCard = (adminUser = {}) => {
+            const mount = document.getElementById('admin-card-mount');
+            if (mount) {
+              mount.classList.remove('hidden');
+              mount.style.display = 'block';
+              mount.innerHTML = `
+                <div class="bg-surface-dark border-2 border-accent-gold/30 rounded-xl p-5 relative overflow-hidden group hover:border-accent-gold transition-colors mb-4">
+                  <div class="absolute top-3 left-3 bg-accent-gold text-[#181711] text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+                    <span>مدير البطولة</span>
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <div class="relative">
+                      <div class="size-16 rounded-full bg-cover bg-center border-2 border-accent-gold" style="background-image: url('${adminUser.avatar_url || ''}'); background-color: #2a2820;"></div>
+                      <div class="absolute -bottom-1 -right-1 bg-surface-dark rounded-full p-0.5">
+                        <span class="material-symbols-outlined text-accent-gold filled text-xl bg-surface-dark rounded-full">verified</span>
+                      </div>
+                    </div>
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2">
+                        <h3 class="text-white font-bold text-lg">${adminUser.username || adminUser.name || 'مدير البطولة'}</h3>
+                      </div>
+                      <div class="flex items-center gap-2 mt-1">
+                        <span class="text-accent-gold text-xs font-bold">المستوى ${adminUser.level || '-'}</span>
+                        <span class="size-1 bg-[#393628] rounded-full"></span>
+                        <span class="text-accent-gold text-xs font-bold">مدير</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
+
+            const adminCard = document.getElementById('admin-card');
+            if (!adminCard) return;
+
+            console.log('👑 محاولة إظهار بطاقة المدير', adminUser);
+            adminCard.classList.remove('hidden');
+            adminCard.removeAttribute('hidden');
+            adminCard.style.display = 'block';
+            adminCard.style.visibility = 'visible';
+            adminCard.style.setProperty('display', 'block', 'important');
+            adminCard.style.setProperty('visibility', 'visible', 'important');
+
+            const adminAvatar = document.getElementById('admin-avatar');
+            if (adminAvatar && adminUser.avatar_url) {
+              adminAvatar.style.backgroundImage = `url(${adminUser.avatar_url})`;
+            }
+
+            const adminName = document.getElementById('admin-name');
+            if (adminName) {
+              adminName.textContent = adminUser.username || adminUser.name || 'مدير البطولة';
+            }
+
+            const adminLevel = document.getElementById('admin-level');
+            if (adminLevel) {
+              const resolvedLevel = adminUser.level || '-';
+              adminLevel.textContent = `المستوى ${resolvedLevel}`;
+            }
+          };
+            
+          // جلب بيانات المستخدم الحالي
+          const response = await fetch(`${API_URL}/auth/profile`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const data = await response.json();
+          if (data.success && data.user) {
+            const avatarUrl = data.user.avatar_url;
+                
+            // تحديث الصورة في الهيدر
+            const headerAvatar = document.getElementById('header-avatar');
+            if (headerAvatar && avatarUrl) {
+              headerAvatar.style.backgroundImage = `url(${avatarUrl})`;
+            }
+                
+            // معرفة ما إذا كان المستخدم هو المضيف أو الضيف
+            if (gameId) {
+              const gameRes = await fetch(`${API_URL}/games/${gameId}`);
+              const gameData = await gameRes.json();
+                    
+              if (gameData.success && gameData.game) {
+                const game = gameData.game;
+                const gameHostId = parseInt(game.host_id, 10);
+                const currentUserIdNum = parseInt(currentUserId, 10);
+                const isHost = gameHostId === currentUserIdNum;
+
+                let parsedSettings = {};
+                try {
+                  parsedSettings = typeof game.game_settings === 'string'
+                    ? JSON.parse(game.game_settings)
+                    : (game.game_settings || {});
+                } catch (e) {
+                  parsedSettings = {};
+                }
+
+                const tournamentAdminId = parseInt(
+                  parsedSettings.tournamentAdminId || parsedSettings.roomCreatorId || parsedSettings.adminId,
+                  10
+                ) || null;
+                const shouldShowAdminCard = Boolean(tournamentAdminId);
+
+                console.log('🧭 بيانات بطاقة المدير:', {
+                  gameId,
+                  tournamentCreated: parsedSettings.tournamentCreated,
+                  isTournamentMatch: parsedSettings.isTournamentMatch,
+                  gameHostId,
+                  gameOpponentId: parseInt(game.opponent_id, 10) || null,
+                  tournamentAdminId,
+                  shouldShowAdminCard
+                });
+
+                if (shouldShowAdminCard) {
+                  let adminUser = null;
+
+                  if (tournamentAdminId) {
+                    try {
+                      const adminRes = await fetch(`${API_URL}/users/${tournamentAdminId}`);
+                      const adminData = await adminRes.json();
+                      if (adminData.success && adminData.user) {
+                        adminUser = adminData.user;
+                      }
+                    } catch (e) {
+                      adminUser = null;
+                    }
+                  }
+
+                  if (!adminUser) {
+                    adminUser = {
+                      username: parsedSettings.tournamentAdminName || parsedSettings.roomCreatorName || 'مدير البطولة',
+                      level: parsedSettings.tournamentAdminLevel || parsedSettings.roomCreatorLevel || '-',
+                      avatar_url: ''
+                    };
+                  }
+
+                  showAdminCard(adminUser);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('خطأ في تحميل صورة المستخدم:', error);
+        }
+      }
+
+      // تحميل الصورة عند فتح الصفحة
+      window.addEventListener('DOMContentLoaded', loadCurrentUserAvatar);
+
+    window.addEventListener('DOMContentLoaded', () => {
+        initializeZoom('main');
+    });
+</script>
+<script>
+// معالج رابط الملف الشخصي - حذف اللعبة إذا كان المضيف يخرج
+window.addEventListener('DOMContentLoaded', function() {
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const gameId = localStorage.getItem('gameId');
+  const API_URL = `${window.location.origin}/api`;
+  
+  // البحث عن رابط الملف الشخصي في الشريط العلوي
+  const profileLink = document.querySelector('a[href="ملف اللاعب الشخصي.html"]');
+  
+  if(!profileLink || !gameId) {
+    console.log('⚠️ لم يتم العثور على رابط الملف الشخصي أو gameId مفقود');
+    return;
+  }
+  
+  console.log('✅ تم ربط event listener بزر الملف الشخصي');
+  
+  profileLink.addEventListener('click', async function(e) {
+    e.preventDefault();
+    
+    console.log('📋 المستخدم يضغط زر الملف الشخصي');
+    
+    try {
+      // جلب بيانات اللعبة للتحقق من أن المستخدم هو المضيف
+      const response = await fetch(`${API_URL}/games/${gameId}`);
+      if(!response.ok) {
+        // إذا فشل الطلب، انتقل مباشرة
+        localStorage.removeItem('gameId');
+        window.location.href = 'ملف اللاعب الشخصي.html';
+        return;
+      }
+      
+      const result = await response.json();
+      if(result.success && result.game) {
+        const game = result.game;
+        const isHost = currentUserId === game.host_id;
+        
+        console.log('🎮 بيانات اللعبة - hostId:', game.host_id, 'currentUserId:', currentUserId, 'isHost:', isHost);
+        
+        if(isHost) {
+          // المضيف - حذف اللعبة
+          console.log('🔴 المضيف يخرج من الغرفة - حذف اللعبة:', gameId);
+          const deleteResponse = await fetch(`${API_URL}/games/delete/${gameId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if(deleteResponse.ok) {
+            console.log('✅ تم حذف اللعبة بنجاح');
+          } else {
+            console.error('❌ فشل حذف اللعبة:', deleteResponse.status);
+          }
+        }
+      }
+      
+      // الخروج من الغرفة والانتقال للملف الشخصي
+      localStorage.removeItem('gameId');
+      window.location.href = 'ملف اللاعب الشخصي.html';
+    } catch(error) {
+      console.error('خطأ في معالجة الخروج:', error);
+      localStorage.removeItem('gameId');
+      window.location.href = 'ملف اللاعب الشخصي.html';
+    }
+  });
+});
+</script>
+<script>
+// معالج زر الرئيسية - حذف اللعبة إذا كان المضيف يخرج
+window.addEventListener('DOMContentLoaded', function() {
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const gameId = localStorage.getItem('gameId');
+  const API_URL = `${window.location.origin}/api`;
+  
+  // البحث عن رابط الرئيسية في الشريط العلوي
+  const homeLink = document.querySelector('nav a[href="index.html"]');
+  
+  if(!homeLink || !gameId) {
+    console.log('⚠️ لم يتم العثور على رابط الرئيسية أو gameId مفقود');
+    return;
+  }
+  
+  console.log('✅ تم ربط event listener بزر الرئيسية');
+  
+  homeLink.addEventListener('click', async function(e) {
+    e.preventDefault();
+    
+    console.log('🏠 المستخدم يضغط زر الرئيسية');
+    
+    try {
+      // جلب بيانات اللعبة للتحقق من أن المستخدم هو المضيف
+      const response = await fetch(`${API_URL}/games/${gameId}`);
+      if(!response.ok) {
+        console.log('⚠️ فشل جلب بيانات اللعبة - الانتقال مباشرة');
+        // إذا فشل الطلب، انتقل مباشرة
+        localStorage.removeItem('gameId');
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      const result = await response.json();
+      if(result.success && result.game) {
+        const game = result.game;
+        const gameHostId = parseInt(game.host_id, 10);
+        const isHost = currentUserId === gameHostId;
+        
+        console.log('🎮 بيانات اللعبة - hostId:', gameHostId, 'currentUserId:', currentUserId, 'isHost:', isHost);
+        
+        if(isHost) {
+          // المضيف - حذف اللعبة
+          console.log('🏠 المضيف يضغط الرئيسية - حذف اللعبة:', gameId);
+          const deleteResponse = await fetch(`${API_URL}/games/delete/${gameId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if(deleteResponse.ok) {
+            console.log('✅ تم حذف اللعبة بنجاح');
+          } else {
+            console.error('❌ فشل حذف اللعبة:', deleteResponse.status);
+          }
+        }
+      }
+      
+      // الخروج من الغرفة والانتقال للصفحة الرئيسية
+      localStorage.removeItem('gameId');
+      window.location.href = 'index.html';
+    } catch(error) {
+      console.error('خطأ في معالجة الخروج:', error);
+      localStorage.removeItem('gameId');
+      window.location.href = 'index.html';
+    }
+  });
+});
+</script>
+<script>
+// زر بدء المعركة - بدء اللعبة والانتقال إلى مرحلة توزيع الجيش
+window.addEventListener('DOMContentLoaded', function() {
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const gameId = localStorage.getItem('gameId');
+  const API_URL = `${window.location.origin}/api`;
+  
+  const startGameBtn = document.getElementById('start-game-btn');
+  const startGameBtnMobile = document.getElementById('start-game-btn-mobile');
+  
+  if((!startGameBtn && !startGameBtnMobile) || !gameId) return;
+  
+  async function startGame(e) {
+    e.preventDefault();
+    
+    try {
+      // جلب بيانات اللعبة للتحقق من أن المستخدم هو المضيف
+      const response = await fetch(`${API_URL}/games/${gameId}`);
+      if(!response.ok) {
+        alert('خطأ في جلب بيانات المعركة');
+        return;
+      }
+      
+      const result = await response.json();
+      if(result.success && result.game) {
+        const game = result.game;
+        const gameHostId = parseInt(game.host_id, 10);
+        const isHost = currentUserId === gameHostId;
+        let parsedSettings = {};
+        try {
+          parsedSettings = typeof game.game_settings === 'string'
+            ? JSON.parse(game.game_settings)
+            : (game.game_settings || {});
+        } catch (e) {
+          parsedSettings = {};
+        }
+        const tournamentAdminId = parseInt(
+          parsedSettings.tournamentAdminId || parsedSettings.roomCreatorId || parsedSettings.adminId,
+          10
+        ) || null;
+        const isManager = tournamentAdminId === currentUserId;
+        
+        // السماح للمضيف أو لمدير البطولة ببدء المعركة
+        if(!isHost && !isManager) {
+          alert('فقط المضيف أو مدير البطولة يمكنه بدء المعركة');
+          return;
+        }
+        
+        // تحديث حالة اللعبة إلى 'started'
+        console.log('جاري بدء المعركة:', gameId);
+        const updateResponse = await fetch(`${API_URL}/games/${gameId}/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if(updateResponse.ok) {
+          console.log('تم بدء المعركة بنجاح');
+
+          // المدير (غير المشارك) يبدأ المعركة بدون الانتقال لمرحلة توزيع الجيش
+          if(isManager && !isHost) {
+            alert('تم بدء المعركة بنجاح. سيتمكن اللاعبون من الانتقال تلقائياً.');
+            const previewUrl = `معاينة-المعركة.html?gameId=${encodeURIComponent(gameId)}&openShareLink=1`;
+            window.location.href = previewUrl;
+            return;
+          }
+
+          // نقل البيانات من localStorage إلى sessionStorage قبل الانتقال
+          const armyDistributionTime = localStorage.getItem('armyDistributionTime');
+          if(armyDistributionTime) {
+            sessionStorage.setItem('armyDistributionTime', armyDistributionTime);
+            console.log('✅ تم نقل armyDistributionTime إلى sessionStorage:', armyDistributionTime);
+          }
+          // الانتقال إلى صفحة مرحلة توزيع الجيش
+          window.isNavigatingToBattle = true;
+          window.location.href = 'مرحلة توزيع الجيش.html';
+        } else {
+          alert('خطأ في بدء المعركة');
+        }
+      }
+    } catch(error) {
+      console.error('خطأ في معالجة بدء المعركة:', error);
+      alert('خطأ في بدء المعركة');
+    }
+  }
+  
+  // إضافة حدث الضغط لكلا الزرين
+  if(startGameBtn) {
+    startGameBtn.addEventListener('click', startGame);
+  }
+  if(startGameBtnMobile) {
+    startGameBtnMobile.addEventListener('click', startGame);
+  }
+});
+</script>
+<script>
+// زر إنشاء المباراة - طرد الضيف وحذف اللعبة
+window.addEventListener('DOMContentLoaded', function() {
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const gameId = localStorage.getItem('gameId');
+  const API_URL = `${window.location.origin}/api`;
+  
+  document.querySelectorAll('button, .group').forEach(function(btn) {
+    if (btn.textContent.includes('إنشاء المباراة')) {
+      btn.onclick = async function(e) {
+        e.preventDefault();
+
+        if (gameId) {
+          try {
+            const tournamentCheckResponse = await fetch(`${API_URL}/games/${gameId}`);
+            if (tournamentCheckResponse.ok) {
+              const tournamentCheckResult = await tournamentCheckResponse.json();
+              const rawSettings = tournamentCheckResult?.game?.game_settings;
+              let parsedSettings = {};
+              if (typeof rawSettings === 'string') {
+                parsedSettings = JSON.parse(rawSettings || '{}');
+              } else if (rawSettings && typeof rawSettings === 'object') {
+                parsedSettings = rawSettings;
+              }
+
+              const isTruthyTournamentFlag = (value) => (
+                value === true || value === 1 || value === '1' || value === 'true'
+              );
+              const normalizedGameType = String(parsedSettings.gameType || parsedSettings.matchType || '').toLowerCase();
+              const isTournamentMatch = Boolean(
+                isTruthyTournamentFlag(parsedSettings.tournamentCreated) ||
+                isTruthyTournamentFlag(parsedSettings.isTournamentMatch) ||
+                isTruthyTournamentFlag(parsedSettings.is_tournament) ||
+                parsedSettings.tournamentId ||
+                parsedSettings.tournament_id ||
+                normalizedGameType === 'tournament'
+              );
+
+              if (isTournamentMatch) {
+                return;
+              }
+            }
+          } catch (tournamentCheckError) {
+            console.warn('تعذر التحقق من حالة البطولة قبل إنشاء المباراة:', tournamentCheckError);
+          }
+        }
+        
+        if (!gameId) {
+          window.location.href = 'إنشاء مباراة.html';
+          return;
+        }
+        
+        try {
+          // جلب بيانات اللعبة للتحقق من كون المستخدم هو المضيف
+          const response = await fetch(`${API_URL}/games/${gameId}`);
+          if(!response.ok) {
+            localStorage.removeItem('gameId');
+            window.location.href = 'إنشاء مباراة.html';
+            return;
+          }
+          
+          const result = await response.json();
+          if(result.success && result.game) {
+            const game = result.game;
+            const gameHostId = parseInt(game.host_id, 10);
+            const isHost = currentUserId === gameHostId;
+            
+            if(isHost) {
+              // المضيف - طرد الضيف إن وجد ثم حذف اللعبة
+              console.log('جاري طرد الضيف من اللعبة:', gameId);
+              
+              // إذا كان هناك ضيف، قم بطرده أولاً
+              if(game.opponent_id) {
+                try {
+                  const kickResponse = await fetch(`${API_URL}/games/${gameId}/kick-guest`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                  });
+                  
+                  if(kickResponse.ok) {
+                    console.log('تم طرد الضيف بنجاح');
+                  }
+                } catch(kickError) {
+                  console.error('خطأ في طرد الضيف:', kickError);
+                }
+              }
+              
+              // ثم حذف اللعبة
+              console.log('جاري حذف اللعبة:', gameId);
+              const deleteResponse = await fetch(`${API_URL}/games/delete/${gameId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+              });
+              
+              if(deleteResponse.ok) {
+                console.log('تم حذف اللعبة بنجاح');
+              } else {
+                console.error('خطأ في حذف اللعبة:', deleteResponse.status);
+              }
+            } else {
+              // الضيف - فقط غادر الغرفة
+              console.log('الضيف يغادر الغرفة');
+            }
+          }
+          
+          // في كلا الحالتين، قم بالخروج
+          localStorage.removeItem('gameId');
+          window.location.href = 'إنشاء مباراة.html';
+        } catch (error) {
+          console.error('خطأ في معالجة الخروج:', error);
+          localStorage.removeItem('gameId');
+          window.location.href = 'إنشاء مباراة.html';
+        }
+      };
+    }
+  });
+});
+</script>
+<script>
+// عرض إعدادات المباراة في البار الأيمن واسم المستخدم في خانة المضيف
+window.addEventListener('DOMContentLoaded', function() {
+  const currentUser = localStorage.getItem('username') || 'لاعب مجهول';
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const gameId = localStorage.getItem('gameId');
+  const API_URL = `${window.location.origin}/api`;
+  
+  if(!gameId) {
+    console.error('لا يوجد معرف مباراة');
+    return;
+  }
+  
+  // دالة موحدة لتحميل جميع البيانات
+  async function loadGameData() {
+    try {
+      // جلب بيانات المباراة
+      const gameRes = await fetch(`${API_URL}/games/${gameId}`);
+      const gameData = await gameRes.json();
+      
+      if(!gameData.success || !gameData.game) {
+        console.error('خطأ في جلب بيانات المباراة');
+        return;
+      }
+      
+      const game = gameData.game;
+      const gameHostId = parseInt(game.host_id, 10);
+      const isHost = currentUserId === gameHostId;
+      let parsedSettings = {};
+      try {
+        parsedSettings = typeof game.game_settings === 'string'
+          ? JSON.parse(game.game_settings)
+          : (game.game_settings || {});
+      } catch (e) {
+        parsedSettings = {};
+      }
+      const tournamentAdminId = parseInt(
+        parsedSettings.tournamentAdminId || parsedSettings.roomCreatorId || parsedSettings.adminId,
+        10
+      ) || null;
+      const isTruthyTournamentFlag = (value) => (
+        value === true || value === 1 || value === '1' || value === 'true'
+      );
+      const normalizedGameType = String(parsedSettings.gameType || parsedSettings.matchType || '').toLowerCase();
+      const isManagerCreatedMatch = Boolean(
+        isTruthyTournamentFlag(parsedSettings.tournamentCreated) ||
+        isTruthyTournamentFlag(parsedSettings.isTournamentMatch) ||
+        isTruthyTournamentFlag(parsedSettings.is_tournament) ||
+        parsedSettings.tournamentId ||
+        parsedSettings.tournament_id ||
+        normalizedGameType === 'tournament'
+      );
+      const isManager = tournamentAdminId === currentUserId;
+
+      const managerReadonlyNote = document.getElementById('manager-readonly-note');
+      if (managerReadonlyNote) {
+        if (isManagerCreatedMatch && isManager) {
+          managerReadonlyNote.classList.remove('hidden');
+        } else {
+          managerReadonlyNote.classList.add('hidden');
+        }
+      }
+
+      // ✅ تحديد الأدوار المعروضة في واجهة غرفة الانتظار
+      // في مباريات البطولة: host_id قد يكون المدير مؤقتاً، لذلك نعتمد player1Id/player2Id
+      const configuredPlayer1Id = parseInt(parsedSettings.player1Id, 10) || null;
+      const configuredPlayer2Id = parseInt(parsedSettings.player2Id, 10) || null;
+      const hasConfiguredPlayer1 = Boolean(isManagerCreatedMatch && configuredPlayer1Id);
+      const hasConfiguredPlayer2 = Boolean(isManagerCreatedMatch && configuredPlayer2Id);
+
+      const gameHostIdNum = parseInt(game.host_id, 10) || null;
+      const gameOpponentIdNum = parseInt(game.opponent_id, 10) || null;
+
+      // في مباريات البطولة قد يدخل اللاعب 1 أو 2 في أي مقعد فعلي (host/opponent)
+      // لذلك نتحقق من وجوده ضمن المشاركين الحاليين بدلاً من ربطه بمقعد محدد
+      const currentParticipantIds = [gameHostIdNum, gameOpponentIdNum].filter(Boolean);
+      const player1Entered = hasConfiguredPlayer1
+        ? currentParticipantIds.includes(configuredPlayer1Id)
+        : Boolean(gameHostIdNum);
+      const player2Entered = hasConfiguredPlayer2
+        ? currentParticipantIds.includes(configuredPlayer2Id)
+        : Boolean(gameOpponentIdNum);
+
+      const displayHostId = hasConfiguredPlayer1
+        ? (player1Entered ? configuredPlayer1Id : null)
+        : gameHostIdNum;
+      const displayGuestId = hasConfiguredPlayer2
+        ? (player2Entered ? configuredPlayer2Id : null)
+        : gameOpponentIdNum;
+
+      console.log('🎯 تحديد الأدوار المعروضة:', {
+        gameHostId: gameHostIdNum,
+        gameOpponentId: gameOpponentIdNum,
+        currentParticipantIds,
+        configuredPlayer1Id,
+        configuredPlayer2Id,
+        player1Entered,
+        player2Entered,
+        displayHostId,
+        displayGuestId,
+        hasConfiguredPlayer1,
+        hasConfiguredPlayer2
+      });
+      
+      // تحديث اسم الغرفة (مع تنسيق خاص لمباريات البطولة)
+      const roomTitle = document.getElementById('room-title-name');
+      const tournamentCodeEl = document.getElementById('tournament-match-code');
+      const rawRoomName = game.game_name || 'معركة جديدة';
+      const tournamentCodeMatch = rawRoomName.match(/T-[^\]\s]+/i);
+      const extractedTournamentCode = tournamentCodeMatch ? tournamentCodeMatch[0] : '';
+      const cleanedTournamentRoomName = rawRoomName.replace(/\s*\[T-[^\]]+\]\s*/i, '').trim();
+      const tournamentNameFromSettings = (parsedSettings.tournamentName || parsedSettings.tournament_name || '').toString().trim();
+
+      const shouldFormatAsTournament = Boolean(isManagerCreatedMatch && tournamentAdminId);
+      const displayRoomName = shouldFormatAsTournament
+        ? `بطولة ${tournamentNameFromSettings || cleanedTournamentRoomName || rawRoomName}`
+        : rawRoomName;
+
+      const groupChatTitle = document.getElementById('group-chat-title');
+      let hostDisplayName = 'اللاعب 1';
+      let guestDisplayName = 'اللاعب 2';
+      let managerDisplayName = isManager
+        ? (localStorage.getItem('username') || 'المدير')
+        : 'المدير';
+
+      if (shouldFormatAsTournament && tournamentAdminId) {
+        try {
+          const managerRes = await fetch(`${API_URL}/users/${tournamentAdminId}`);
+          const managerData = await managerRes.json();
+          if (managerData.success && managerData.user?.username) {
+            managerDisplayName = managerData.user.username;
+          }
+        } catch (managerError) {
+          console.warn('تعذر جلب اسم المدير للشات الجماعي:', managerError);
+        }
+      }
+
+      const updateGroupChatTitle = () => {
+        if (!groupChatTitle) return;
+        groupChatTitle.textContent = 'شات جماعي';
+      };
+
+      const createMatchButtons = [
+        document.getElementById('create-match-btn-mobile'),
+        document.getElementById('create-match-btn-desktop')
+      ].filter(Boolean);
+      createMatchButtons.forEach(btn => {
+        if (shouldFormatAsTournament) {
+          btn.disabled = true;
+          btn.style.pointerEvents = 'none';
+          btn.style.opacity = '0.45';
+        } else {
+          btn.disabled = false;
+          btn.style.pointerEvents = '';
+          btn.style.opacity = '';
+        }
+      });
+
+      const waitingPrimary = document.getElementById('waiting-message-primary');
+      const waitingSecondary = document.getElementById('waiting-message-secondary');
+      if (shouldFormatAsTournament && isManager) {
+        if (waitingPrimary) waitingPrimary.classList.add('hidden');
+        if (waitingSecondary) {
+          waitingSecondary.classList.remove('text-[#b9b49d]', 'text-xs');
+          waitingSecondary.classList.add('text-white', 'text-base', 'font-bold');
+        }
+      } else {
+        if (waitingPrimary) waitingPrimary.classList.remove('hidden');
+        if (waitingSecondary) {
+          waitingSecondary.classList.remove('text-white', 'text-base', 'font-bold');
+          waitingSecondary.classList.add('text-[#b9b49d]', 'text-xs');
+        }
+      }
+
+      updateGroupChatTitle();
+
+      if(roomTitle) {
+        roomTitle.textContent = displayRoomName;
+      }
+
+      if (tournamentCodeEl) {
+        if (shouldFormatAsTournament && extractedTournamentCode) {
+          tournamentCodeEl.textContent = extractedTournamentCode;
+          tournamentCodeEl.classList.remove('hidden');
+        } else {
+          tournamentCodeEl.textContent = '';
+          tournamentCodeEl.classList.add('hidden');
+        }
+      }
+      
+      // جلب اسم المضيف (اللاعب 1 في مباريات البطولة)
+      if (displayHostId) {
+        const hostRes = await fetch(`${API_URL}/users/${displayHostId}`);
+        const hostData = await hostRes.json();
+        if(hostData.success) {
+          hostDisplayName = (hostData.user.username || 'اللاعب 1').trim();
+          updateGroupChatTitle();
+          const hostName = document.getElementById('host-name');
+          const hostLevel = document.getElementById('host-level');
+          const hostStatus = document.getElementById('host-status');
+          if(hostName) hostName.textContent = hostDisplayName;
+          if(hostLevel) hostLevel.textContent = `المستوى ${hostData.user.level || 1}`;
+          if(hostStatus) {
+            hostStatus.textContent = 'جاهز';
+            hostStatus.className = 'text-status-green text-xs font-bold';
+          }
+          
+          // تحديث صورة المضيف
+          if(hostData.user.avatar_url) {
+            const hostAvatar = document.getElementById('host-avatar');
+            if(hostAvatar) {
+              hostAvatar.style.backgroundImage = `url(${hostData.user.avatar_url})`;
+              hostAvatar.style.backgroundColor = '';
+              hostAvatar.innerHTML = '';
+            }
+          }
+        }
+      } else {
+        // لم يدخل اللاعب 1 بعد
+        const hostName = document.getElementById('host-name');
+        const hostLevel = document.getElementById('host-level');
+        const hostStatus = document.getElementById('host-status');
+        const hostAvatar = document.getElementById('host-avatar');
+        const chatBtnHost = document.getElementById('chat-with-host-btn');
+
+        if(hostName) hostName.textContent = hasConfiguredPlayer1 ? 'في انتظار اللاعب 1...' : 'في انتظار المضيف...';
+        hostDisplayName = 'اللاعب 1';
+        updateGroupChatTitle();
+        if(hostLevel) hostLevel.textContent = '';
+        if(hostStatus) {
+          hostStatus.textContent = 'غير متصل';
+          hostStatus.className = 'text-[#b9b49d] text-xs font-bold';
+        }
+        if(hostAvatar) {
+          hostAvatar.style.backgroundImage = 'none';
+          hostAvatar.style.backgroundColor = '#2a2820';
+          hostAvatar.innerHTML = '<span class="material-symbols-outlined text-3xl text-white/50 w-full h-full flex items-center justify-center">person</span>';
+        }
+        if(chatBtnHost) {
+          chatBtnHost.classList.add('hidden');
+        }
+      }
+      
+      // عرض اسم الخريطة
+      const mapNameEl = document.getElementById('sidebar-map-name');
+      if(mapNameEl) {
+        mapNameEl.textContent = game.map_name || 'غير محددة';
+        mapNameEl.className = 'text-white font-bold mt-1'; // إضافة الألوان الصحيحة
+      }
+      
+      // عرض الإعدادات
+      const settingsEl = document.getElementById('sidebar-settings');
+      if(settingsEl && game.game_settings) {
+        try {
+          const settings = typeof game.game_settings === 'string' 
+            ? JSON.parse(game.game_settings) 
+            : game.game_settings;
+          
+          let settingsHTML = '';
+          if(settings) {
+            if(settings.infantry1 || settings.knight1 || settings.archer1 || settings.ship1) {
+              settingsHTML += '<div class="text-xs mt-2 text-white"><strong>الطرف الأول:</strong><br>';
+              if(settings.infantry1) settingsHTML += `جنود: ${settings.infantry1}<br>`;
+              if(settings.knight1) settingsHTML += `فرسان: ${settings.knight1}<br>`;
+              if(settings.archer1) settingsHTML += `رماة: ${settings.archer1}<br>`;
+              if(settings.ship1) settingsHTML += `سفن: ${settings.ship1}<br>`;
+              settingsHTML += '</div>';
+            }
+            
+            if(settings.infantry2 || settings.knight2 || settings.archer2 || settings.ship2) {
+              settingsHTML += '<div class="text-xs mt-2 text-white"><strong>الطرف الثاني:</strong><br>';
+              if(settings.infantry2) settingsHTML += `جنود: ${settings.infantry2}<br>`;
+              if(settings.knight2) settingsHTML += `فرسان: ${settings.knight2}<br>`;
+              if(settings.archer2) settingsHTML += `رماة: ${settings.archer2}<br>`;
+              if(settings.ship2) settingsHTML += `سفن: ${settings.ship2}<br>`;
+              settingsHTML += '</div>';
+            }
+          }
+          
+          if(settingsHTML) {
+            settingsEl.innerHTML = settingsHTML;
+          } else {
+            settingsEl.innerHTML = '<span class="text-[#b9b49d] text-xs">لم تُحدّد إعدادات</span>';
+          }
+        } catch(e) {
+          console.error('خطأ في قراءة الإعدادات:', e);
+          settingsEl.innerHTML = '<span class="text-[#b9b49d] text-xs">خطأ في تحميل الإعدادات</span>';
+        }
+      } else {
+        settingsEl.innerHTML = '<span class="text-[#b9b49d] text-xs">لا توجد إعدادات</span>';
+      }
+      
+      // جلب وعرض بيانات الضيف
+      const opponentName = document.getElementById('opponent-name');
+      const opponentLevel = document.getElementById('opponent-level');
+      const opponentStatus = document.getElementById('opponent-status');
+      const opponentAvatar = document.getElementById('opponent-avatar');
+      const waitingSlots = document.querySelectorAll('.waiting-player-slot');
+      
+      if(displayGuestId) {
+        // يوجد ضيف - اعرض بيانات الضيف (اللاعب 2 في مباريات البطولة)
+        const opponentRes = await fetch(`${API_URL}/users/${displayGuestId}`);
+        const opponentData = await opponentRes.json();
+        if(opponentData.success) {
+          const user = opponentData.user;
+          guestDisplayName = (user.username || 'اللاعب 2').trim();
+          updateGroupChatTitle();
+          
+          if(opponentName) opponentName.textContent = user.username || 'لاعب جديد';
+          if(opponentLevel) opponentLevel.textContent = `المستوى ${user.level || 1}`;
+          if(opponentStatus) opponentStatus.textContent = 'جاهز';
+          
+          // إظهار زر الشات المناسب بناءً على دور المستخدم
+          const isHost = displayHostId === currentUserId;
+          const chatBtnGuest = document.getElementById('chat-with-guest-btn');
+          const chatBtnHost = document.getElementById('chat-with-host-btn');
+          
+          if(shouldFormatAsTournament) {
+            if(chatBtnHost) {
+              chatBtnHost.classList.add('hidden');
+            }
+            if(chatBtnGuest) {
+              chatBtnGuest.classList.add('hidden');
+            }
+          } else if(isHost) {
+            // المضيف: إظهار زر الشات في خانة الضيف فقط
+            if(chatBtnGuest) {
+              chatBtnGuest.classList.remove('hidden');
+            }
+            if(chatBtnHost) {
+              chatBtnHost.classList.add('hidden');
+            }
+          } else {
+            // الضيف: إظهار زر الشات في خانة المضيف فقط
+            if(chatBtnHost) {
+              chatBtnHost.classList.remove('hidden');
+            }
+            if(chatBtnGuest) {
+              chatBtnGuest.classList.add('hidden');
+            }
+          }
+          
+          // تحديث صورة الضيف
+          if(user.avatar_url && opponentAvatar) {
+            opponentAvatar.style.backgroundImage = `url(${user.avatar_url})`;
+            opponentAvatar.style.backgroundColor = '';
+            opponentAvatar.innerHTML = '';
+          }
+          
+          // إخفاء خانات الانتظار عندما يكون هناك ضيف
+          waitingSlots.forEach(slot => {
+            slot.style.display = 'none';
+          });
+        }
+      } else {
+        // لا يوجد ضيف - اعرض حالة الانتظار
+        guestDisplayName = 'اللاعب 2';
+        updateGroupChatTitle();
+        if(opponentName) opponentName.textContent = hasConfiguredPlayer2 ? 'في انتظار اللاعب 2...' : 'في انتظار الضيف...';
+        if(opponentLevel) opponentLevel.textContent = '';
+        if(opponentStatus) opponentStatus.textContent = 'غير متصل';
+        if(opponentAvatar) {
+          opponentAvatar.style.backgroundImage = 'none';
+          opponentAvatar.style.backgroundColor = '#2a2820';
+          opponentAvatar.innerHTML = '<span class="material-symbols-outlined text-3xl text-white/50 w-full h-full flex items-center justify-center">person</span>';
+        }
+        
+        // إخفاء زر الشات
+        const chatBtn = document.getElementById('chat-with-guest-btn');
+        if(chatBtn) {
+          chatBtn.classList.add('hidden');
+        }
+        
+        // إخفاء زر الشات في خانة المضيف
+        const chatBtnHost = document.getElementById('chat-with-host-btn');
+        if(chatBtnHost) {
+          chatBtnHost.classList.add('hidden');
+        }
+        
+        // إظهار خانات الانتظار مجدداً
+        waitingSlots.forEach(slot => {
+          slot.style.display = '';
+        });
+      }
+      
+      // إعادة تحميل الصفحة بعد ثانية
+      
+      // جلب وعرض برفيو الخريطة
+      if(game.map_name) {
+        const mapPreview = document.getElementById('sidebar-map-preview');
+        if(mapPreview) {
+          const mapsRes = await fetch('/api/maps/list');
+          const mapsData = await mapsRes.json();
+          
+          if(mapsData.success && mapsData.maps) {
+            const map = mapsData.maps.find(m => m.name === game.map_name || m.filename.includes(game.map_name));
+            if(map) {
+              const mapLoadRes = await fetch(`/api/maps/load/${map.filename}`);
+              const mapLoadData = await mapLoadRes.json();
+              
+              const cellSize = 12;
+              let html = `<div style="display:inline-block;border:1px solid #393628;background:#181711;">`;
+              for(let row=0;row<mapLoadData.height;row++){
+                html += `<div style="display:flex;">`;
+                for(let col=0;col<mapLoadData.width;col++){
+                  const cell = mapLoadData.data.find(c=>c.row===row&&c.col===col);
+                  let bg = (row+col)%2===0?'#23221b':'#393628';
+                  let content = '';
+                  if(cell){
+                    if(cell.type==='water'){bg='#3366ff';if(cell.hasDock)content='⚓';}
+                    else if(cell.type==='mountain'){bg='#6b4c3a';content='⛰';}
+                  }
+                  html += `<div style="width:${cellSize}px;height:${cellSize}px;background:${bg};border:1px solid #222;display:flex;align-items:center;justify-content:center;font-size:8px;">${content}</div>`;
+                }
+                html += `</div>`;
+              }
+              html += `</div>`;
+              mapPreview.innerHTML = html;
+            }
+          }
+        }
+      }
+      
+      // التحكم في الواجهة حسب الدور:
+      // 1) إذا كانت مباراة أنشأها المدير والمستخدم هو المضيف => إخفاء دعوة لاعب + بدء المعركة
+      // 2) إذا كان المستخدم هو المدير => إظهار زر بدء المعركة
+      // 3) غير ذلك (ضيف عادي) => إخفاء دعوة لاعب + أزرار البدء
+      const startGameBtn = document.getElementById('start-game-btn');
+      const startGameBtnMobile = document.getElementById('start-game-btn-mobile');
+      const invitePanel = document.getElementById('invite-panel');
+
+      if (isManagerCreatedMatch && isHost && !isManager) {
+        if (invitePanel) invitePanel.style.display = 'none';
+        if (startGameBtn) startGameBtn.style.display = 'none';
+        if (startGameBtnMobile) startGameBtnMobile.style.display = 'none';
+      } else if (isManager) {
+        if (invitePanel) invitePanel.style.display = isManagerCreatedMatch ? 'none' : '';
+        if (startGameBtn) startGameBtn.style.display = '';
+        if (startGameBtnMobile) startGameBtnMobile.style.display = '';
+      } else if (!isHost) {
+        if (invitePanel) invitePanel.style.display = 'none';
+        if (startGameBtn) startGameBtn.style.display = 'none';
+        if (startGameBtnMobile) startGameBtnMobile.style.display = 'none';
+
+        const allButtons = document.querySelectorAll('button');
+        allButtons.forEach(btn => {
+          const text = btn.textContent || '';
+          if(text.includes('بدء المعركة') || text.includes('إنشاء المباراة')) {
+            btn.style.display = 'none';
+          }
+        });
+      } else {
+        if (invitePanel) invitePanel.style.display = '';
+        if (startGameBtn) startGameBtn.style.display = '';
+        if (startGameBtnMobile) startGameBtnMobile.style.display = '';
+      }
+      
+      // تحديث أعلام الألوان
+      const hostColorFlag = document.getElementById('host-color-flag');
+      const opponentColorFlag = document.getElementById('opponent-color-flag');
+      
+      // الحصول على الألوان من قاعدة البيانات (عبر البيانات المجلوبة)
+      const hostColor = game.host_color || localStorage.getItem('playerPieceColor') || 'white';
+      const guestColor = game.guest_color || localStorage.getItem('guestPieceColor') || (hostColor === 'white' ? 'black' : 'white');
+      
+      // حفظ الألوان في localStorage للاستخدام في الصفحات الأخرى
+      if(game.host_color && game.guest_color) {
+        localStorage.setItem('playerPieceColor', game.host_color);
+        localStorage.setItem('guestPieceColor', game.guest_color);
+      }
+      
+      console.log('🎨 تحديث أعلام الألوان في غرفة الانتظار:');
+      console.log('  • لون المضيف (من قاعدة البيانات):', hostColor);
+      console.log('  • لون الضيف (من قاعدة البيانات):', guestColor);
+      console.log('  • علم المضيف:', hostColorFlag ? '✓ موجود' : '✗ غير موجود');
+      console.log('  • علم الضيف:', opponentColorFlag ? '✓ موجود' : '✗ غير موجود');
+      
+      const flagColors = {
+        'white': { border: '#ffffff', dot: '#ffffff' },
+        'black': { border: '#000000', dot: '#000000' }
+      };
+      
+      // تحديث علم المضيف
+      if(hostColorFlag && flagColors[hostColor]) {
+        hostColorFlag.style.borderColor = flagColors[hostColor].border;
+        const dot = hostColorFlag.querySelector('div');
+        if(dot) {
+          dot.style.backgroundColor = flagColors[hostColor].dot;
+        }
+        console.log('✅ تم تحديث علم المضيف بنجاح');
+      }
+      
+      // تحديث علم الضيف
+      if(opponentColorFlag && flagColors[guestColor]) {
+        opponentColorFlag.style.borderColor = flagColors[guestColor].border;
+        const dot = opponentColorFlag.querySelector('div');
+        if(dot) {
+          dot.style.backgroundColor = flagColors[guestColor].dot;
+        }
+        console.log('✅ تم تحديث علم الضيف بنجاح');
+      }
+      
+      // التحقق من حالة المعركة - إذا بدأت، انتقل المضيف والضيف تلقائياً
+      const gameOpponentId = game.opponent_id ? parseInt(game.opponent_id, 10) : null;
+      const gameHostIdForStart = parseInt(game.host_id, 10);
+      const isGameHost = currentUserId === gameHostIdForStart;
+      const isGameGuest = currentUserId === gameOpponentId;
+      const isParticipant = isGameHost || isGameGuest;
+
+      if(game.status === 'started' && isParticipant) {
+        const roleLabel = isGameHost ? 'المضيف' : 'الضيف';
+        console.log(`✓ تم بدء المعركة، جاري انتقال ${roleLabel} إلى صفحة توزيع الجيش`);
+        console.log('البيانات المؤكدة:', {
+          game_status: game.status,
+          gameHostId: gameHostIdForStart,
+          gameOpponentId: gameOpponentId,
+          currentUserId: currentUserId,
+          role: roleLabel
+        });
+
+        // نقل البيانات من localStorage إلى sessionStorage قبل الانتقال
+        const armyDistributionTime = localStorage.getItem('armyDistributionTime');
+        if(armyDistributionTime) {
+          sessionStorage.setItem('armyDistributionTime', armyDistributionTime);
+          console.log('✅ تم نقل armyDistributionTime إلى sessionStorage:', armyDistributionTime);
+        }
+
+        // تأخير للتأكد من تحديث البيانات في قاعدة البيانات
+        setTimeout(() => {
+          window.isNavigatingToBattle = true;
+          window.location.href = 'مرحلة توزيع الجيش.html';
+        }, 800);
+        return;
+      }
+      
+      // إذا كان اللاعب مشاركاً (مضيف/ضيف) لكن المعركة لم تبدأ بعد
+      if((isGameHost || isGameGuest) && game.status !== 'started') {
+        const roleLabel = isGameHost ? 'المضيف' : 'الضيف';
+        console.log(`🟡 ${roleLabel} موجود لكن المعركة لم تبدأ بعد`);
+        return;
+      }
+      
+      // التحقق من طرد الضيف
+      if(game.guest_kicked && currentUserId !== game.host_id) {
+        console.log('❌ تم طرد الضيف من الغرفة');
+        alert('❌ المضيف رفضك!\n\nتم اختيار ضيف آخر. تم إخراجك من الغرفة.');
+        localStorage.removeItem('gameId');
+        window.location.href = 'ملف اللاعب الشخصي.html';
+      }
+      
+    } catch(error) {
+      console.error('خطأ في تحميل بيانات المباراة:', error);
+    }
+  }
+  
+  // تحميل البيانات مباشرة عند فتح الصفحة
+  loadGameData();
+
+  // إتاحة تحديث يدوي للبيانات عند الأحداث (مثل دخول لاعب أو إرسال رسالة)
+  window.refreshWaitingRoomData = loadGameData;
+});
+</script>
+
+<script>
+window.addEventListener('DOMContentLoaded', function() {
+  const gameId = localStorage.getItem('gameId');
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const API_URL = `${window.location.origin}/api`;
+  const RESERVE_ARMY_STORAGE_KEY_PREFIX = 'reserveArmyValue_';
+
+  function getReserveArmyStorageKey(userId = localStorage.getItem('userId')) {
+    const normalizedUserId = String(userId || '').trim();
+    if (!normalizedUserId) {
+      return `${RESERVE_ARMY_STORAGE_KEY_PREFIX}anonymous`;
+    }
+    return `${RESERVE_ARMY_STORAGE_KEY_PREFIX}${normalizedUserId}`;
+  }
+
+  const actionWrap = document.getElementById('guest-reserve-action-wrap');
+  const actionBtn = document.getElementById('guest-reserve-action-btn');
+  const modal = document.getElementById('guest-reserve-modal');
+  const closeBtn = document.getElementById('guest-reserve-close');
+  const cancelBtn = document.getElementById('guest-reserve-cancel');
+  const saveBtn = document.getElementById('guest-reserve-save');
+
+  let currentReserveTargetRole = null; // player1 | player2
+
+  const inputIds = {
+    infantry2: 'guest-infantry',
+    knight2: 'guest-knight',
+    archer2: 'guest-archer',
+    ship2: 'guest-ship',
+    wazir2: 'guest-wazir'
+  };
+
+  const costs = {
+    infantry2: { base: 8, cost: 1 },
+    knight2: { base: 2, cost: 10 },
+    archer2: { base: 2, cost: 4 },
+    ship2: { base: 2, cost: 3 },
+    wazir2: { base: 1, cost: 40 }
+  };
+
+  const reserveCountInput = document.getElementById('guest-reserve-count');
+  const reserveMessage = document.getElementById('guest-reserve-message');
+
+  if(!gameId || !actionWrap || !actionBtn || !modal) return;
+
+  const isTruthyTournamentFlag = (value) => (
+    value === true || value === 1 || value === '1' || value === 'true'
+  );
+
+  function getReserveBaseValue() {
+    const parsed = parseInt(localStorage.getItem(getReserveArmyStorageKey(currentUserId)), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  async function syncReserveArmyFromProfile() {
+    try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) return getReserveBaseValue();
+
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      const reserveFromProfile = parseInt(
+        data?.user?.reserve_army ?? data?.user?.reserveArmy,
+        10
+      );
+
+      if (Number.isFinite(reserveFromProfile) && reserveFromProfile >= 0) {
+        const scopedKey = getReserveArmyStorageKey(data?.user?.id || currentUserId);
+        localStorage.setItem(scopedKey, String(reserveFromProfile));
+        return reserveFromProfile;
+      }
+    } catch (error) {
+      console.warn('تعذر مزامنة جيش الإحتياط من الملف الشخصي:', error);
+    }
+
+    return getReserveBaseValue();
+  }
+
+  function getInputs() {
+    const elements = {};
+    Object.entries(inputIds).forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (el) elements[key] = el;
+    });
+    return elements;
+  }
+
+  function roleConfig(role) {
+    if (role === 'player1') {
+      return {
+        fieldMap: {
+          infantry: 'infantry1',
+          knight: 'knight1',
+          archer: 'archer1',
+          ship: 'ship1',
+          wazir: 'wazir1'
+        },
+        defaults: { infantry: 8, knight: 2, archer: 2, ship: 2, wazir: 1 },
+        reserveFlag: 'hostUseReserveArmy',
+        leaderField: 'leader1'
+      };
+    }
+
+    return {
+      fieldMap: {
+        infantry: 'infantry2',
+        knight: 'knight2',
+        archer: 'archer2',
+        ship: 'ship2',
+        wazir: 'wazir2'
+      },
+      defaults: { infantry: 8, knight: 2, archer: 2, ship: 2, wazir: 1 },
+      reserveFlag: 'guestUseReserveArmy',
+      leaderField: 'leader2'
+    };
+  }
+
+  function calculateReserveRemaining() {
+    const inputs = getInputs();
+    const reserveBase = getReserveBaseValue();
+    let spent = 0;
+
+    Object.entries(costs).forEach(([key, cfg]) => {
+      const currentValue = Math.max(0, parseInt(inputs[key]?.value, 10) || 0);
+      const addedUnits = Math.max(0, currentValue - cfg.base);
+      spent += addedUnits * cfg.cost;
+    });
+
+    return Math.max(0, reserveBase - spent);
+  }
+
+  function updateReserveUI() {
+    const inputs = getInputs();
+    const remaining = calculateReserveRemaining();
+
+    if (reserveCountInput) reserveCountInput.value = remaining;
+
+    const shouldDisable = remaining <= 0;
+    Object.values(inputs).forEach((input) => {
+      input.disabled = shouldDisable;
+    });
+
+    if (reserveMessage) {
+      reserveMessage.classList.toggle('hidden', !shouldDisable);
+    }
+  }
+
+  function enforceNonNegativeInputs() {
+    const inputs = getInputs();
+    Object.entries(inputs).forEach(([key, input]) => {
+      input.addEventListener('input', () => {
+        const value = parseInt(input.value, 10);
+        const safeValue = Number.isFinite(value) ? value : costs[key].base;
+        input.value = Math.max(0, safeValue);
+        updateReserveUI();
+      });
+    });
+  }
+
+  async function openModal(role) {
+    currentReserveTargetRole = role;
+    await syncReserveArmyFromProfile();
+
+    const localSettings = JSON.parse(localStorage.getItem('matchSettings') || '{}');
+    const cfg = roleConfig(role);
+
+    const mapping = {
+      infantry2: 'infantry',
+      knight2: 'knight',
+      archer2: 'archer',
+      ship2: 'ship',
+      wazir2: 'wazir'
+    };
+
+    Object.entries(inputIds).forEach(([uiKey, id]) => {
+      const element = document.getElementById(id);
+      if (!element) return;
+      const semanticKey = mapping[uiKey];
+      const settingsField = cfg.fieldMap[semanticKey];
+      const resolved = parseInt(localSettings[settingsField], 10);
+      element.value = Number.isFinite(resolved) ? resolved : cfg.defaults[semanticKey];
+    });
+
+    updateReserveUI();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  async function evaluateReserveEligibility() {
+    try {
+      const gameRes = await fetch(`${API_URL}/games/${gameId}`);
+      const gameData = await gameRes.json();
+      if(!gameData.success || !gameData.game) return;
+
+      const game = gameData.game;
+      const gameHostId = parseInt(game.host_id, 10);
+      const gameGuestId = parseInt(game.opponent_id, 10);
+
+      let settings = {};
+      try {
+        settings = typeof game.game_settings === 'string' ? JSON.parse(game.game_settings) : (game.game_settings || {});
+      } catch (e) {
+        settings = {};
+      }
+
+      const normalizedGameType = String(settings.gameType || settings.matchType || '').toLowerCase();
+      const isTournamentMatch = Boolean(
+        isTruthyTournamentFlag(settings.tournamentCreated) ||
+        isTruthyTournamentFlag(settings.isTournamentMatch) ||
+        isTruthyTournamentFlag(settings.is_tournament) ||
+        settings.tournamentId ||
+        settings.tournament_id ||
+        normalizedGameType === 'tournament'
+      );
+
+      const hasManager = Boolean(
+        parseInt(settings.tournamentAdminId || settings.roomCreatorId || settings.adminId, 10)
+      );
+      const isAdvancedGame = String(settings.gameNature || '').toLowerCase() === 'advanced';
+
+      const configuredPlayer1Id = parseInt(settings.player1Id, 10) || gameHostId || null;
+      const configuredPlayer2Id = parseInt(settings.player2Id, 10) || gameGuestId || null;
+
+      const isTournamentPlayer1 = isTournamentMatch && hasManager && currentUserId === configuredPlayer1Id;
+      const isTournamentPlayer2 = isTournamentMatch && hasManager && currentUserId === configuredPlayer2Id;
+      const isClassicGuestReserveCase = !isTournamentMatch && !hasManager && currentUserId === gameGuestId;
+
+      const shouldShow = isAdvancedGame && (isTournamentPlayer1 || isTournamentPlayer2 || isClassicGuestReserveCase);
+      actionWrap.classList.toggle('hidden', !shouldShow);
+
+      if (shouldShow) {
+        const actionText = actionBtn.querySelector('span:last-child');
+        if (actionText) {
+          actionText.textContent = 'استخدام قوة الإحتياط';
+          currentReserveTargetRole = isTournamentPlayer1 ? 'player1' : 'player2';
+        }
+      }
+    } catch (error) {
+      console.error('خطأ في تحديد صلاحية زر قوة الإحتياط للضيف:', error);
+      actionWrap.classList.add('hidden');
+    }
+  }
+
+  function saveReserveSettings() {
+    const role = currentReserveTargetRole || 'player2';
+    const cfg = roleConfig(role);
+    const localSettings = JSON.parse(localStorage.getItem('matchSettings') || '{}');
+    const nextSettings = { ...localSettings };
+
+    const mapping = {
+      infantry2: 'infantry',
+      knight2: 'knight',
+      archer2: 'archer',
+      ship2: 'ship',
+      wazir2: 'wazir'
+    };
+
+    Object.entries(inputIds).forEach(([uiKey, id]) => {
+      const element = document.getElementById(id);
+      const value = Math.max(0, parseInt(element?.value, 10) || 0);
+      const semanticKey = mapping[uiKey];
+      nextSettings[cfg.fieldMap[semanticKey]] = value;
+    });
+
+    nextSettings[cfg.reserveFlag] = true;
+    nextSettings[cfg.leaderField] = 1;
+    localStorage.setItem('matchSettings', JSON.stringify(nextSettings));
+
+    closeModal();
+    alert('✅ تم اعتماد قوة الإحتياط');
+
+    if (typeof window.refreshWaitingRoomData === 'function') {
+      window.refreshWaitingRoomData();
+    }
+  }
+
+  enforceNonNegativeInputs();
+  evaluateReserveEligibility();
+  setInterval(evaluateReserveEligibility, 3000);
+
+  actionBtn.addEventListener('click', async function() {
+    await openModal(currentReserveTargetRole || 'player2');
+  });
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  if (saveBtn) saveBtn.addEventListener('click', saveReserveSettings);
+
+  modal.addEventListener('click', function(event) {
+    if (event.target === modal) closeModal();
+  });
+});
+</script>
+<script>
+// زر طرد اللاعب من قبل المضيف
+window.addEventListener('DOMContentLoaded', function() {
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const gameId = localStorage.getItem('gameId');
+  const API_URL = `${window.location.origin}/api`;
+  
+  const kickGuestBtn = document.getElementById('kick-guest-btn');
+  
+  if(!kickGuestBtn || !gameId) return;
+  
+  // جلب بيانات اللعبة والتحقق من أن المستخدم هو المضيف
+  fetch(`${API_URL}/games/${gameId}`)
+    .then(res => res.json())
+    .then(result => {
+      if(result.success && result.game) {
+        const game = result.game;
+        const gameHostId = parseInt(game.host_id, 10);
+        const isHost = currentUserId === gameHostId;
+        
+        // إذا لم يكن المضيف، أخفِ الزر
+        if(!isHost) {
+          kickGuestBtn.style.display = 'none';
+        } else {
+          // إذا كان المضيف، أضف الحدث للزر
+          kickGuestBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            
+            // جلب البيانات الحالية للعبة قبل الطرد
+            try {
+              const currentGameResponse = await fetch(`${API_URL}/games/${gameId}`);
+              const currentGameData = await currentGameResponse.json();
+              
+              if (!currentGameData.success || !currentGameData.game) {
+                alert('خطأ في جلب بيانات اللعبة');
+                return;
+              }
+              
+              const currentGame = currentGameData.game;
+              
+              // التحقق من وجود ضيف بناءً على البيانات الحالية
+              if(!currentGame.opponent_id) {
+                alert('لا يوجد ضيف لطرده');
+                return;
+              }
+              
+              console.log('جاري محاولة طرد الضيف للمباراة:', gameId);
+              const response = await fetch(`${API_URL}/games/${gameId}/kick-guest`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              });
+              
+              if (!response.ok) {
+                console.error('خطأ HTTP:', response.status, response.statusText);
+                alert('حدث خطأ في محاولة طرد الضيف');
+                return;
+              }
+              
+              const result = await response.json();
+              if (result.success) {
+                alert('تم طرد الضيف بنجاح');
+                console.log('تم طرد الضيف بنجاح');
+                
+                // إرجاع حالة الغرفة إلى حالة الانتظار بدون إعادة تحميل الصفحة
+                // مسح معلومات الضيف
+                const opponentName = document.getElementById('opponent-name');
+                const opponentLevel = document.getElementById('opponent-level');
+                const opponentStatus = document.getElementById('opponent-status');
+                const opponentAvatar = document.getElementById('opponent-avatar');
+                
+                if(opponentName) opponentName.textContent = 'في انتظار الضيف...';
+                if(opponentLevel) opponentLevel.textContent = '';
+                if(opponentStatus) opponentStatus.textContent = 'غير متصل';
+                if(opponentAvatar) {
+                  opponentAvatar.style.backgroundImage = 'none';
+                  opponentAvatar.style.backgroundColor = '#2a2820';
+                  opponentAvatar.innerHTML = '<span class="material-symbols-outlined text-3xl text-white/50 w-full h-full flex items-center justify-center">person</span>';
+                }
+                
+                // إخفاء أزرار الشات
+                const chatBtnGuest = document.getElementById('chat-with-guest-btn');
+                const chatBtnHost = document.getElementById('chat-with-host-btn');
+                if(chatBtnGuest) {
+                  chatBtnGuest.classList.add('hidden');
+                }
+                if(chatBtnHost) {
+                  chatBtnHost.classList.add('hidden');
+                }
+                
+                // إظهار خانات الانتظار مجدداً
+                const waitingSlots = document.querySelectorAll('.waiting-player-slot');
+                waitingSlots.forEach(slot => {
+                  slot.style.display = '';
+                });
+              }
+            } catch (error) {
+              console.error('خطأ في طرد الضيف:', error);
+              alert('حدث خطأ في طرد الضيف');
+            }
+          });
+        }
+      }
+    });
+});
+</script>
+
+
+<script>
+// جلب جميع اللاعبين من قاعدة البيانات وعرضهم في قائمة الدعوة
+window.addEventListener('DOMContentLoaded', function() {
+  const gameId = localStorage.getItem('gameId');
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const API_URL = `${window.location.origin}/api`;
+  
+  if(!gameId) return;
+
+  // خريطة لتتبع حالات الدعوات المرسلة
+  const inviteStatuses = new Map(); // { userId: 'pending'/'accepted'/'rejected' }
+
+  const resolveId = (...values) => {
+    for (const value of values) {
+      const parsed = parseInt(value, 10);
+      if (parsed > 0) return parsed;
+    }
+    return null;
+  };
+  
+  // جلب جميع اللاعبين
+  async function loadAllPlayers() {
+    try {
+      const gameResponse = await fetch(`${API_URL}/games/${gameId}`);
+      if(!gameResponse.ok) {
+        console.error('خطأ في جلب بيانات اللعبة لتصفية الدعوات');
+        return;
+      }
+
+      const gamePayload = await gameResponse.json();
+      const game = gamePayload?.game;
+      if(!gamePayload.success || !game) {
+        console.error('تعذر قراءة بيانات اللعبة لتصفية الدعوات');
+        return;
+      }
+
+      let parsedSettings = {};
+      try {
+        parsedSettings = typeof game.game_settings === 'string'
+          ? JSON.parse(game.game_settings)
+          : (game.game_settings || {});
+      } catch (e) {
+        parsedSettings = {};
+      }
+
+      const configuredPlayer1Id = resolveId(parsedSettings.player1Id, parsedSettings.player1_id, parsedSettings.hostPlayerId);
+      const configuredPlayer2Id = resolveId(parsedSettings.player2Id, parsedSettings.player2_id, parsedSettings.guestPlayerId);
+      const tournamentAdminId = resolveId(
+        parsedSettings.tournamentAdminId,
+        parsedSettings.roomCreatorId,
+        parsedSettings.adminId,
+        parsedSettings.tournament_creator_id
+      );
+
+      const isTruthyTournamentFlag = (value) => (
+        value === true || value === 1 || value === '1' || value === 'true'
+      );
+      const normalizedGameType = String(parsedSettings.gameType || parsedSettings.matchType || '').toLowerCase();
+      const isTournamentMatch = Boolean(
+        isTruthyTournamentFlag(parsedSettings.tournamentCreated) ||
+        isTruthyTournamentFlag(parsedSettings.isTournamentMatch) ||
+        isTruthyTournamentFlag(parsedSettings.is_tournament) ||
+        parsedSettings.tournamentId ||
+        parsedSettings.tournament_id ||
+        normalizedGameType === 'tournament'
+      );
+
+      const allowedTournamentIds = new Set(
+        [configuredPlayer1Id, configuredPlayer2Id]
+          .filter(Boolean)
+          .filter((id) => id !== currentUserId)
+      );
+
+      const gameHostId = resolveId(game.host_id);
+      const gameOpponentId = resolveId(game.opponent_id);
+
+      const response = await fetch(`${API_URL}/users`);
+      if(!response.ok) {
+        console.error('خطأ في جلب اللاعبين');
+        return;
+      }
+      
+      const result = await response.json();
+      if(result.success && result.users) {
+        const playersList = document.getElementById('players-list');
+        playersList.innerHTML = '';
+        
+        // تصفية اللاعبين (إزالة المستخدم الحالي والمضيف الحالي)
+        result.users.forEach(user => {
+          const userIdNum = parseInt(user.id, 10);
+          const isCurrentUser = userIdNum === currentUserId;
+          const isAlreadyInGame = userIdNum === gameHostId || userIdNum === gameOpponentId;
+          const isAllowedTournamentUser = !isTournamentMatch || allowedTournamentIds.has(userIdNum);
+
+          if(!isCurrentUser && !isAlreadyInGame && isAllowedTournamentUser) {
+            const playerDiv = document.createElement('div');
+            playerDiv.className = 'flex items-center justify-between p-3 rounded-lg hover:bg-[#2a2820] transition-colors group';
+            
+            const avatar = user.avatar_url || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"%3E%3Crect fill="%23e5e7eb" width="40" height="40"/%3E%3Ctext x="50%25" y="50%25" font-size="16" font-weight="bold" fill="%239ca3af" text-anchor="middle" dy=".3em"%3E?%3C/text%3E%3C/svg%3E';
+            const inviteStatus = inviteStatuses.get(user.id);
+            
+            let buttonHTML = '';
+            if (inviteStatus === 'rejected') {
+              buttonHTML = `<span class="text-red-400 text-xs font-bold">❌ رفض الدعوة</span>`;
+            } else if (inviteStatus === 'pending') {
+              buttonHTML = `<span class="text-yellow-400 text-xs font-bold animate-pulse">⏳ قيد الانتظار</span>`;
+            } else if (inviteStatus === 'accepted') {
+              buttonHTML = `<span class="text-green-400 text-xs font-bold">✅ قبل الدعوة</span>`;
+            } else {
+              buttonHTML = `<button class="bg-primary/10 text-primary p-1.5 rounded-md hover:bg-primary hover:text-surface-darker transition-colors opacity-0 group-hover:opacity-100 invite-btn" data-user-id="${user.id}">
+                <span class="material-symbols-outlined text-lg">add</span>
+              </button>`;
+            }
+            
+            playerDiv.innerHTML = `
+              <div class="flex items-center gap-3">
+                <div class="relative">
+                  <div class="size-10 rounded-full bg-gray-700 overflow-hidden">
+                    <img alt="Avatar" class="w-full h-full object-cover" src="${avatar}"/>
+                  </div>
+                  <div class="absolute bottom-0 right-0 size-2.5 bg-status-green border-2 border-surface-dark rounded-full"></div>
+                </div>
+                <div>
+                  <div class="text-white text-sm font-bold">${user.username}</div>
+                  <div class="text-status-green text-[10px] font-bold">المستوى ${user.level || 1}</div>
+                </div>
+              </div>
+              <div class="invite-action" data-user-id="${user.id}">
+                ${buttonHTML}
+              </div>
+            `;
+            
+            playersList.appendChild(playerDiv);
+          }
+        });
+
+        if (!playersList.children.length) {
+          const emptyState = document.createElement('div');
+          emptyState.className = 'text-[#b9b49d] text-xs font-bold text-center py-4';
+          emptyState.textContent = isTournamentMatch
+            ? 'لا توجد دعوات متاحة. فقط اللاعبان المحددان في البطولة يمكن دعوتهما.'
+            : 'لا يوجد لاعبون متاحون للدعوة حالياً.';
+          playersList.appendChild(emptyState);
+        }
+        
+        // إضافة حدث الدعوة
+        document.querySelectorAll('.invite-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const userId = this.getAttribute('data-user-id');
+            invitePlayer(userId);
+          });
+        });
+      }
+    } catch(error) {
+      console.error('خطأ في تحميل اللاعبين:', error);
+    }
+  }
+  
+  // دالة دعوة لاعب
+  async function invitePlayer(userId) {
+    console.log(`📨 إرسال دعوة إلى اللاعب ${userId}`);
+    
+    try {
+      // تحديث الحالة إلى قيد الانتظار
+      inviteStatuses.set(userId, 'pending');
+      updatePlayerInviteUI(userId, 'pending');
+      
+      const response = await fetch(`${API_URL}/games/${gameId}/invite-player`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          from_user_id: currentUserId, 
+          to_user_id: userId 
+        })
+      });
+      
+      const result = await response.json();
+      
+      if(result.success) {
+        console.log(`✅ تم إرسال الدعوة بنجاح - Invite ID: ${result.inviteId}`);
+        alert('تم إرسال دعوة للاعب. في انتظار الرد...');
+        
+        // تخزين معرف الدعوة
+        window.inviteMap = window.inviteMap || {};
+        window.inviteMap[userId] = result.inviteId;
+      } else {
+        console.error('❌ خطأ إرسال الدعوة:', result.message);
+        alert('خطأ: ' + result.message);
+        // إعادة الحالة
+        inviteStatuses.delete(userId);
+        updatePlayerInviteUI(userId, null);
+      }
+    } catch(error) {
+      console.error('خطأ في دعوة اللاعب:', error);
+      alert('خطأ في دعوة اللاعب');
+      // إعادة الحالة
+      inviteStatuses.delete(userId);
+      updatePlayerInviteUI(userId, null);
+    }
+  }
+  
+  // دالة تحديث واجهة الدعوة
+  function updatePlayerInviteUI(userId, status) {
+    const actionDiv = document.querySelector(`.invite-action[data-user-id="${userId}"]`);
+    if (!actionDiv) return;
+    
+    let html = '';
+    if (status === 'rejected') {
+      html = `<span class="text-red-400 text-xs font-bold">❌ رفض الدعوة</span>`;
+    } else if (status === 'pending') {
+      html = `<span class="text-yellow-400 text-xs font-bold animate-pulse">⏳ قيد الانتظار</span>`;
+    } else if (status === 'accepted') {
+      html = `<span class="text-green-400 text-xs font-bold">✅ قبل الدعوة</span>`;
+    } else {
+      html = `<button class="bg-primary/10 text-primary p-1.5 rounded-md hover:bg-primary hover:text-surface-darker transition-colors invite-btn" data-user-id="${userId}">
+        <span class="material-symbols-outlined text-lg">add</span>
+      </button>`;
+      
+      // إضافة الحدث مجدداً إذا عادت للزر
+      setTimeout(() => {
+        const btn = actionDiv.querySelector('.invite-btn');
+        if (btn) {
+          btn.addEventListener('click', function() {
+            invitePlayer(userId);
+          });
+        }
+      }, 100);
+    }
+    
+    actionDiv.innerHTML = html;
+  }
+  
+  // تحميل اللاعبين عند فتح الصفحة
+  loadAllPlayers();
+
+  // إتاحة تحديث يدوي لقائمة اللاعبين عند الأحداث
+  window.refreshPlayersList = loadAllPlayers;
+});
+</script>
+<script>
+// التحقق من خروج الضيف وإخطار المضيف
+window.addEventListener('DOMContentLoaded', function() {
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+  const gameId = localStorage.getItem('gameId');
+  const API_URL = `${window.location.origin}/api`;
+  
+  if(!gameId) return;
+  
+  let hadGuestBefore = false; // تتبع ما إذا كان هناك ضيف من قبل
+  
+  // دالة للتحقق من ما إذا تم رفض دعوة المستخدم الحالي
+  async function checkIfMyInviteWasRejected() {
+    try {
+      const gameResponse = await fetch(`${API_URL}/games/${gameId}`);
+      if(!gameResponse.ok) return false;
+      
+      const gameData = await gameResponse.json();
+      if(gameData.success && gameData.game) {
+        const game = gameData.game;
+        const gameHostId = parseInt(game.host_id, 10);
+        const gameOpponentId = game.opponent_id ? parseInt(game.opponent_id, 10) : null;
+        const isCurrentGuest = currentUserId === gameOpponentId;
+        
+        // ========== الفحص الحاسم ==========
+        // إذا كان اللاعب هو الضيف الحالي، توقف الفحص
+        // لا تفحص الرفض أبداً (دعوته تم قبولها)
+        if(isCurrentGuest) {
+          return false;
+        }
+        
+        // لا تفحص الرفض إذا كان اللاعب المضيف
+        if(currentUserId === gameHostId) {
+          return false;
+        }
+        
+        // فقط للاعبين الذين ليسوا في اللعبة، افحص الرفض
+        const invitesResponse = await fetch(`${API_URL}/users/${currentUserId}/pending-invites`);
+        if(!invitesResponse.ok) return false;
+        
+        const invitesData = await invitesResponse.json();
+        if(invitesData.success && invitesData.invites) {
+          // 🔍 ابحث عن جميع الدعوات لهذه اللعبة
+          const gameInvites = invitesData.invites.filter(inv => 
+            inv.game_id === parseInt(gameId) && 
+            inv.to_user_id === currentUserId
+          );
+          
+          if(gameInvites.length === 0) {
+            // لا توجد دعوة للعبة - غير محتمل
+            return false;
+          }
+          
+          // 🔍 ابحث عن أحدث دعوة مقبولة
+          const acceptedInvite = gameInvites.find(inv => inv.status === 'accepted');
+          
+          // 🔍 ابحث عن أحدث دعوة مرفوضة
+          const rejectedInvites = gameInvites.filter(inv => inv.status === 'rejected');
+          
+          // إذا كان هناك دعوة مقبولة، تأكد من أنها أحدث من الدعوات المرفوضة
+          if(acceptedInvite) {
+            // إذا لم تكن هناك دعوات مرفوضة، فلا مشكلة
+            if(rejectedInvites.length === 0) {
+              console.log('✅ الدعوة مقبولة ولا توجد دعوات مرفوضة');
+              return false;
+            }
+            
+            // تحقق من الأوقات (إذا توفرت)
+            const acceptedTime = new Date(acceptedInvite.created_at || 0).getTime();
+            const latestRejectedTime = Math.max(
+              ...rejectedInvites.map(inv => new Date(inv.created_at || 0).getTime())
+            );
+            
+            // إذا كانت الدعوة المقبولة أحدث من آخر دعوة مرفوضة، لا تعتبرها رفض
+            if(acceptedTime > latestRejectedTime) {
+              console.log('✅ الدعوة المقبولة أحدث من الرفض - لا توجد مشكلة');
+              return false;
+            }
+            
+            // في غير ذلك، تجاهل الدعوة المرفوضة لأن هناك دعوة مقبولة
+            return false;
+          }
+          
+          // إذا لم تكن هناك دعوة مقبولة وكانت هناك دعوة مرفوضة، أخبر المستخدم
+          if(rejectedInvites.length > 0) {
+            console.log('❌ تم رفض دعوتك');
+            alert('عذراً! تم رفض دعوتك وتم اختيار ضيف آخر للعبة. سيتم إخراجك من الغرفة الآن.');
+            localStorage.removeItem('gameId');
+            window.location.href = 'ملف اللاعب الشخصي.html';
+            return true;
+          }
+        }
+      }
+    } catch(error) {
+      console.error('خطأ في التحقق من حالة الدعوة:', error);
+    }
+    return false;
+  }
+  
+  // دالة للتحقق من ما إذا كان المستخدم ضيف ثم إرسال إشعار خروج
+  async function notifyHostAboutGuestLeaving() {
+    if (window.isNavigatingToBattle) {
+      return;
+    }
+    try {
+      const gameResponse = await fetch(`${API_URL}/games/${gameId}`);
+      if(!gameResponse.ok) return;
+      
+      const gameData = await gameResponse.json();
+      if(gameData.success && gameData.game) {
+        const game = gameData.game;
+        const gameHostId = parseInt(game.host_id, 10);
+        const gameOpponentId = game.opponent_id ? parseInt(game.opponent_id, 10) : null;
+        const isGuest = currentUserId !== gameHostId && currentUserId === gameOpponentId;
+        
+        // إذا كان المستخدم ضيف، أرسل إخطار للمضيف
+        if(isGuest) {
+          console.log('🚪 الضيف يخرج من الغرفة');
+          await fetch(`${API_URL}/games/${gameId}/guest-left`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+    } catch(error) {
+      console.error('خطأ في إخطار المضيف:', error);
+    }
+    
+    // حذف gameId من localStorage
+    localStorage.removeItem('gameId');
+  }
+  
+  // الأزرار التي عند الضغط عليها يخرج الضيف من الغرفة
+  const exitButtons = [
+    document.querySelector('a[href="ملف اللاعب الشخصي.html"]'), // الملف الشخصي
+    document.querySelector('a[href="#"]') // الرئيسية
+  ];
+  
+  // إضافة معالج خروج للأزرار
+  exitButtons.forEach(btn => {
+    if(btn) {
+      btn.addEventListener('click', async function(e) {
+        // للأزرار التي لها href، منع السلوك الافتراضي مؤقتاً
+        if(this.href && this.href !== '#') {
+          e.preventDefault();
+        }
+        
+        // إخطار المضيف عن خروج الضيف
+        await notifyHostAboutGuestLeaving();
+        
+        // الانتقال إلى الصفحة المطلوبة
+        if(this.href && this.href !== '#') {
+          window.location.href = this.href;
+        } else {
+          window.location.href = 'ملف اللاعب الشخصي.html';
+        }
+      });
+    }
+  });
+  
+  // معالج عام عند إغلاق الصفحة أو تغييرها
+  window.addEventListener('beforeunload', async function() {
+    await notifyHostAboutGuestLeaving();
+  });
+  
+  // التحقق المستمر من خروج الضيف وخروج المضيف (كل ثانية)
+  // **تأخير 2 ثانية قبل البدء** للتأكد من تحديث البيانات الأولية
+  let hostIsAlive = true; // تتبع حالة المضيف
+  let lastGameData = null; // حفظ آخر بيانات لعبة
+  let isGuest = false; // هل المستخدم الحالي ضيف
+  let lastParticipantsSignature = null; // تتبع دخول/خروج اللاعبين
+  
+  // قم بأول فحص مباشر بدون تأخير
+  async function performGameCheck() {
+    try {
+      const gameResponse = await fetch(`${API_URL}/games/${gameId}`);
+      
+      if(!gameResponse.ok) {
+        const statusCode = gameResponse.status;
+        console.log(`❌ فشل في جلب بيانات اللعبة - الحالة: ${statusCode}`);
+        
+        // إذا كان المستخدم ضيف واللعبة محذوفة، أظهر رسالة وارجع للملف الشخصي
+        if(isGuest) {
+          console.log('🚨 الضيف يكتشف أن المضيف خرج (اللعبة محذوفة) - عرض رسالة الإلغاء');
+          alert('تم إلغاء المباراة. لقد خرج المضيف من الغرفة.');
+          console.log('📤 توجيه الضيف إلى الملف الشخصي');
+          localStorage.removeItem('gameId');
+          window.location.href = 'ملف اللاعب الشخصي.html';
+        }
+        return;
+      }
+      
+      const gameData = await gameResponse.json();
+      
+      if(gameData.success && gameData.game) {
+        lastGameData = gameData.game;
+        const game = gameData.game;
+        const gameHostId = parseInt(game.host_id, 10);
+        const gameOpponentId = game.opponent_id ? parseInt(game.opponent_id, 10) : null;
+        const isHost = currentUserId === gameHostId;
+        const isCurrentGuest = currentUserId === gameOpponentId;
+
+        const participantsSignature = `${gameHostId || 'none'}:${gameOpponentId || 'none'}`;
+        const participantsChanged = lastParticipantsSignature !== null && lastParticipantsSignature !== participantsSignature;
+        lastParticipantsSignature = participantsSignature;
+
+        if (participantsChanged) {
+          if (typeof window.refreshWaitingRoomData === 'function') {
+            await window.refreshWaitingRoomData();
+          }
+          if (typeof window.refreshPlayersList === 'function') {
+            await window.refreshPlayersList();
+          }
+        }
+        
+        // حفظ حالة الضيف
+        if(isCurrentGuest) {
+          isGuest = true;
+        }
+        
+        console.log('🎮 فحص حالة اللعبة:', {
+          gameId,
+          currentUserId,
+          hostId: gameHostId,
+          opponentId: gameOpponentId,
+          isGuest: isCurrentGuest,
+          status: game.status
+        });
+        
+        // إذا كان الضيف الحالي وبدأت المعركة - انتقل مباشرة
+        if(isCurrentGuest && game.status === 'started') {
+          console.log('✅ تم بدء المباراة - نقل الضيف إلى صفحة توزيع الجيش');
+          // نقل البيانات من localStorage إلى sessionStorage قبل الانتقال
+          const armyDistributionTime = localStorage.getItem('armyDistributionTime');
+          if(armyDistributionTime) {
+            sessionStorage.setItem('armyDistributionTime', armyDistributionTime);
+            console.log('✅ تم نقل armyDistributionTime إلى sessionStorage:', armyDistributionTime);
+          }
+          setTimeout(() => {
+            window.isNavigatingToBattle = true;
+            window.location.href = 'مرحلة توزيع الجيش.html';
+          }, 500);
+          return;
+        }
+      }
+    } catch(error) {
+      console.error('خطأ في فحص اللعبة:', error);
+    }
+  }
+  
+  // قم بأول فحص مباشر
+  performGameCheck();
+  
+  // فحص خفيف لاكتشاف دخول/خروج لاعب وتحديث الواجهة عند التغيير فقط
+  setInterval(performGameCheck, 2000);
+  
+  // بدء الاستقصاء الدوري للشات في الخلفية
+  startBackgroundChatPolling();
+});
+</script>
+
+<!-- ================== دوال الشات ================== -->
+<script>
+// متغيرات لتتبع الرسائل الجديدة
+let previousMessageCount = 0;
+let lastMessageSenderId = null;
+let chatPollingInterval = null;
+let backgroundChatPollingInterval = null;
+let currentOtherId = null; // معرّف الشخص الآخر في الدردشة
+let waitingRoomGroupChatId = null;
+let waitingRoomGroupParticipants = [];
+let waitingRoomGroupPollingInterval = null;
+let waitingRoomGroupEnsureInterval = null;
+let waitingRoomGroupMessageCount = 0;
+let waitingRoomGroupCurrentGameId = null;
+let waitingRoomSocket = null;
+let waitingRoomSocketConnected = false;
+
+function initWaitingRoomSocket() {
+  if (waitingRoomSocket) return;
+  if (typeof io !== 'function') {
+    console.warn('⚠️ Socket.io client غير متاح في الصفحة');
+    return;
+  }
+
+  const socketServerUrl = window.location.origin;
+  waitingRoomSocket = io(socketServerUrl, {
+    transports: ['websocket', 'polling']
+  });
+
+  waitingRoomSocket.on('connect', () => {
+    waitingRoomSocketConnected = true;
+    const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+    const gameId = localStorage.getItem('gameId');
+
+    if (!Number.isNaN(currentUserId) && currentUserId > 0) {
+      waitingRoomSocket.emit('join-user-room', { userId: currentUserId });
+    }
+
+    if (gameId && !Number.isNaN(currentUserId) && currentUserId > 0) {
+      waitingRoomSocket.emit('join-tournament-chat', { gameId, userId: currentUserId });
+    }
+  });
+
+  waitingRoomSocket.on('disconnect', () => {
+    waitingRoomSocketConnected = false;
+  });
+
+  waitingRoomSocket.on('user-joined', async () => {
+    if (typeof window.refreshWaitingRoomData === 'function') {
+      await window.refreshWaitingRoomData();
+    }
+    if (typeof window.refreshPlayersList === 'function') {
+      await window.refreshPlayersList();
+    }
+  });
+
+  waitingRoomSocket.on('user-left', async () => {
+    if (typeof window.refreshWaitingRoomData === 'function') {
+      await window.refreshWaitingRoomData();
+    }
+    if (typeof window.refreshPlayersList === 'function') {
+      await window.refreshPlayersList();
+    }
+  });
+
+  waitingRoomSocket.on('chat-message', async (payload) => {
+    if (!payload || !payload.chatId) return;
+
+    const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+    const senderId = parseInt(payload.senderId, 10);
+    const isOwnMessage = !Number.isNaN(currentUserId) && !Number.isNaN(senderId) && senderId === currentUserId;
+
+    if (payload.isGroupChat) {
+      if (waitingRoomGroupChatId && payload.chatId === waitingRoomGroupChatId) {
+        await loadWaitingRoomGroupMessages(true);
+      }
+      return;
+    }
+
+    const chatContainer = document.getElementById('chat-container');
+    const openChatId = chatContainer?.dataset?.chatId || '';
+
+    if (openChatId && openChatId === payload.chatId) {
+      await loadChatMessages(payload.chatId, true);
+    }
+
+    if (!isOwnMessage) {
+      const senderName = payload.username || 'لاعب';
+      playNotificationSound();
+      showBrowserNotification(`رسالة جديدة من ${senderName}`, {
+        body: payload.messageText || 'لديك رسالة جديدة في الشات',
+        tag: 'chat-notification',
+        requireInteraction: true
+      });
+      showChatAlert(`📬 رسالة جديدة من ${senderName}`);
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    const gameId = localStorage.getItem('gameId');
+    const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+    if (waitingRoomSocket && waitingRoomSocketConnected && gameId && !Number.isNaN(currentUserId)) {
+      waitingRoomSocket.emit('leave-tournament-chat', { gameId, userId: currentUserId });
+      waitingRoomSocket.disconnect();
+    }
+  });
+}
+
+function resolveNumericId(...values) {
+  for (const value of values) {
+    const parsed = parseInt(value, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function parseGameSettings(gameSettings) {
+  try {
+    if (!gameSettings) return {};
+    return typeof gameSettings === 'string' ? JSON.parse(gameSettings) : gameSettings;
+  } catch (error) {
+    return {};
+  }
+}
+
+function updateGroupChatStatus(text) {
+  const statusEl = document.getElementById('group-chat-status');
+  if (statusEl) {
+    statusEl.textContent = text;
+  }
+}
+
+function setGroupChatPanelVisibility(isVisible) {
+  const panel = document.getElementById('group-chat-panel');
+  if (!panel) return;
+  if (isVisible) {
+    panel.classList.remove('hidden');
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+function parseMemberIds(memberIdsText) {
+  return String(memberIdsText || '')
+    .split(',')
+    .map(id => parseInt(id.trim(), 10))
+    .filter(id => !Number.isNaN(id));
+}
+
+function hasSameParticipants(existingMemberIds, requiredIds) {
+  const existingSet = new Set(existingMemberIds);
+  return requiredIds.every(id => existingSet.has(id));
+}
+
+async function ensureWaitingRoomGroupChat() {
+  try {
+    const authToken = localStorage.getItem('authToken');
+    const gameId = localStorage.getItem('gameId');
+    const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+    const API_URL = `${window.location.origin}/api`;
+
+    if (!authToken || !gameId || Number.isNaN(currentUserId)) {
+      setGroupChatPanelVisibility(false);
+      return;
+    }
+
+    const gameResponse = await fetch(`${API_URL}/games/${gameId}`);
+    const gameData = await gameResponse.json();
+    if (!gameData.success || !gameData.game) {
+      setGroupChatPanelVisibility(false);
+      return;
+    }
+
+    const game = gameData.game;
+    const settings = parseGameSettings(game.game_settings);
+
+    const tournamentAdminId = resolveNumericId(
+      settings.tournamentAdminId,
+      settings.roomCreatorId,
+      settings.adminId,
+      settings.tournament_creator_id
+    );
+    const player1Id = resolveNumericId(settings.player1Id, settings.player1_id, game.host_id);
+    const player2Id = resolveNumericId(settings.player2Id, settings.player2_id, game.opponent_id);
+
+    const normalizedGameType = String(settings.gameType || settings.matchType || '').toLowerCase();
+    const isTruthyTournamentFlag = (value) => (
+      value === true || value === 1 || value === '1' || value === 'true'
+    );
+    const isTournamentMatch = Boolean(
+      isTruthyTournamentFlag(settings.tournamentCreated) ||
+      isTruthyTournamentFlag(settings.isTournamentMatch) ||
+      isTruthyTournamentFlag(settings.is_tournament) ||
+      settings.tournamentId ||
+      settings.tournament_id ||
+      normalizedGameType === 'tournament' ||
+      tournamentAdminId
+    );
+
+    const participants = [...new Set([
+      tournamentAdminId,
+      player1Id,
+      player2Id
+    ].filter(Boolean))];
+
+    if (!isTournamentMatch || participants.length < 2 || !participants.includes(currentUserId)) {
+      setGroupChatPanelVisibility(false);
+      waitingRoomGroupChatId = null;
+      waitingRoomGroupParticipants = [];
+      return;
+    }
+
+    setGroupChatPanelVisibility(true);
+    updateGroupChatStatus('جاري الاتصال...');
+
+    const groupName = `شات غرفة الانتظار ${gameId}`;
+    const storageKey = `waitingRoomGroupChatId_${gameId}`;
+    const cachedChatId = localStorage.getItem(storageKey);
+
+    const groupsResponse = await fetch(`${API_URL}/messages/groups`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const groupsData = await groupsResponse.json();
+    const groups = Array.isArray(groupsData.groups) ? groupsData.groups : [];
+
+    let matchedGroup = null;
+    if (cachedChatId) {
+      matchedGroup = groups.find(group => group.chat_id === cachedChatId);
+    }
+
+    if (!matchedGroup) {
+      matchedGroup = groups.find(group => {
+        if (group.group_name !== groupName) return false;
+        const memberIds = parseMemberIds(group.member_ids);
+        return hasSameParticipants(memberIds, participants);
+      });
+    }
+
+    if (!matchedGroup) {
+      const createResponse = await fetch(`${API_URL}/messages/group/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          participantIds: participants,
+          groupName
+        })
+      });
+      const createData = await createResponse.json();
+      if (!createData.success || !createData.chatId) {
+        updateGroupChatStatus('تعذر إنشاء الشات الجماعي');
+        return;
+      }
+      waitingRoomGroupChatId = createData.chatId;
+    } else {
+      waitingRoomGroupChatId = matchedGroup.chat_id;
+    }
+
+    waitingRoomGroupParticipants = participants;
+    waitingRoomGroupCurrentGameId = gameId;
+    localStorage.setItem(storageKey, waitingRoomGroupChatId);
+
+    if (waitingRoomSocket && waitingRoomSocketConnected) {
+      waitingRoomSocket.emit('join-tournament-chat', { gameId, userId: currentUserId });
+    }
+
+    await loadWaitingRoomGroupMessages(true);
+    updateGroupChatStatus('متصل');
+  } catch (error) {
+    console.error('❌ خطأ في تهيئة الشات الجماعي:', error);
+    updateGroupChatStatus('خطأ في الاتصال');
+  }
+}
+
+function displayWaitingRoomGroupMessages(messages) {
+  const container = document.getElementById('group-messages-container');
+  const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+
+  if (!container) return;
+
+  const shouldStickToBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 40;
+  const currentCount = Array.isArray(messages) ? messages.length : 0;
+  waitingRoomGroupMessageCount = currentCount;
+
+  container.innerHTML = '';
+
+  if (!currentCount) {
+    container.innerHTML = '<div class="text-[#b9b49d] text-sm text-center py-8">لا توجد رسائل بعد. ابدأوا المحادثة.</div>';
+    return;
+  }
+
+  messages.forEach(msg => {
+    const isCurrentUser = parseInt(msg.sender_id, 10) === currentUserId;
+    const messageEl = document.createElement('div');
+    messageEl.className = `mb-3 flex ${isCurrentUser ? 'justify-start' : 'justify-end'}`;
+
+    const username = msg.username || 'لاعب';
+    const messageText = msg.message_text || '';
+    const timeText = new Date(msg.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+
+    messageEl.innerHTML = `
+      <div class="max-w-[85%] ${isCurrentUser ? 'text-right' : 'text-left'}">
+        <p class="text-[11px] text-[#b9b49d] mb-1">${username}</p>
+        <div class="rounded-lg px-3 py-2 ${isCurrentUser ? 'bg-primary text-[#181711]' : 'bg-surface-darker text-white'}">
+          <p class="text-sm break-words">${messageText}</p>
+        </div>
+        <p class="text-[10px] text-[#b9b49d] mt-1">${timeText}</p>
+      </div>
+    `;
+    container.appendChild(messageEl);
+  });
+
+  if (shouldStickToBottom) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+async function loadWaitingRoomGroupMessages(silent = false) {
+  try {
+    if (!waitingRoomGroupChatId) return;
+
+    const authToken = localStorage.getItem('authToken');
+    const API_URL = `${window.location.origin}/api`;
+    const response = await fetch(`${API_URL}/messages/${waitingRoomGroupChatId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const data = await response.json();
+
+    if (data.success && Array.isArray(data.messages)) {
+      displayWaitingRoomGroupMessages(data.messages);
+      if (!silent) {
+        updateGroupChatStatus('متصل');
+      }
+    }
+  } catch (error) {
+    if (!silent) {
+      console.error('❌ خطأ في تحميل رسائل الشات الجماعي:', error);
+      updateGroupChatStatus('تعذر تحميل الرسائل');
+    }
+  }
+}
+
+async function sendGroupChatMessage() {
+  const input = document.getElementById('group-message-input');
+  const messageText = input ? input.value.trim() : '';
+
+  if (!messageText) return;
+
+  try {
+    if (!waitingRoomGroupChatId) {
+      await ensureWaitingRoomGroupChat();
+    }
+
+    if (!waitingRoomGroupChatId) {
+      updateGroupChatStatus('تعذر العثور على الشات');
+      return;
+    }
+
+    const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+    const authToken = localStorage.getItem('authToken');
+    const API_URL = `${window.location.origin}/api`;
+    const recipientIds = waitingRoomGroupParticipants.filter(id => id !== currentUserId);
+
+    const response = await fetch(`${API_URL}/messages/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        recipientIds,
+        messageText,
+        isGroupChat: true,
+        chatId: waitingRoomGroupChatId
+      })
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      input.value = '';
+      await loadWaitingRoomGroupMessages(true);
+      if (typeof window.refreshWaitingRoomData === 'function') {
+        await window.refreshWaitingRoomData();
+      }
+      if (typeof window.refreshPlayersList === 'function') {
+        await window.refreshPlayersList();
+      }
+      updateGroupChatStatus('متصل');
+    } else {
+      updateGroupChatStatus('فشل إرسال الرسالة');
+    }
+  } catch (error) {
+    console.error('❌ خطأ في إرسال رسالة الشات الجماعي:', error);
+    updateGroupChatStatus('خطأ أثناء الإرسال');
+  }
+}
+
+function playNotificationSound() {
+    // إنشاء صوت بسيط باستخدام Web Audio API
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // تشغيل صوت جرس (ترددات متعددة)
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {
+        console.log('⚠️ تعذر تشغيل الصوت:', e);
+    }
+}
+
+// دالة إظهار إشعار البراوزر
+function showBrowserNotification(title, options = {}) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, {
+            icon: '💬',
+            badge: '💬',
+            ...options
+        });
+    } else if ('Notification' in window && Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                new Notification(title, {
+                    icon: '💬',
+                    badge: '💬',
+                    ...options
+                });
+            }
+        });
+    }
+}
+
+// دالة إظهار رسالة تنبيه الشات
+function showChatAlert(message) {
+    // إنشاء عنصر التنبيه
+    const alertEl = document.createElement('div');
+    alertEl.className = 'fixed top-4 right-4 bg-primary text-[#181711] px-6 py-3 rounded-lg shadow-lg font-bold text-sm z-[9999] animate-bounce';
+    alertEl.textContent = message;
+    document.body.appendChild(alertEl);
+    
+    // حذف التنبيه بعد 5 ثوان
+    setTimeout(() => {
+        alertEl.remove();
+    }, 5000);
+}
+
+// دالة التحقق من الرسائل الجديدة بصمت (حتى لو كان الشات مغلقاً)
+async function checkForNewMessagesInBackground() {
+    try {
+        if (!currentOtherId) return; // إذا لم نحد الشخص الآخر بعد، وقف
+        
+        const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+        const authToken = localStorage.getItem('authToken');
+        const API_URL = `${window.location.origin}/api`;
+        
+        // إنشاء chat_id
+        const minId = Math.min(currentUserId, currentOtherId);
+        const maxId = Math.max(currentUserId, currentOtherId);
+        const chatId = `user_${minId}_${maxId}`;
+        
+        // جلب الرسائل بصمت
+        const response = await fetch(`${API_URL}/messages/${chatId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.messages) {
+            const messages = data.messages;
+            const currentMessageCount = messages.length;
+            
+            // إكتشاف الرسائل الجديدة من الخصم
+            if (currentMessageCount > previousMessageCount) {
+                // هناك رسالة جديدة
+                if (messages.length > 0) {
+                    const lastMessage = messages[messages.length - 1];
+                    
+                    // تأكد أن الرسالة من الخصم وليس منك
+                    if (lastMessage.sender_id != currentUserId) {
+                        console.log(`💬 [خلفية] رسالة جديدة من ${lastMessage.username}`);
+                        
+                        // تشغيل الصوت
+                        playNotificationSound();
+                        
+                        // إظهار إشعار البراوزر
+                        showBrowserNotification(`رسالة جديدة من ${lastMessage.username}`, {
+                            body: 'لديك رسالة جديدة في الشات',
+                            tag: 'chat-notification',
+                            requireInteraction: true
+                        });
+                        
+                        // إظهار رسالة مرئية في الصفحة
+                        showChatAlert(`📬 رسالة جديدة من ${lastMessage.username}`);
+                    }
+                }
+                previousMessageCount = currentMessageCount;
+            }
+        }
+    } catch (error) {
+        // لا نعرض الأخطاء في الوضع الصامت
+    }
+}
+
+// بدء الاستقصاء الدوري في الخلفية
+function startBackgroundChatPolling() {
+    if (backgroundChatPollingInterval) {
+        clearInterval(backgroundChatPollingInterval);
+    backgroundChatPollingInterval = null;
+    }
+
+  // تم تعطيل الاستقصاء الدوري: التحديث يتم عند الأحداث فقط
+  checkForNewMessagesInBackground();
+}
+
+// إيقاف الاستقصاء الدوري في الخلفية
+function stopBackgroundChatPolling() {
+    if (backgroundChatPollingInterval) {
+        clearInterval(backgroundChatPollingInterval);
+        backgroundChatPollingInterval = null;
+    }
+}
+
+// فتح الشات مع اللاعب الآخر (المضيف أو الضيف)
+async function openChatWithPlayer() {
+    console.log('💬 فتح الشات مع اللاعب');
+    
+    try {
+        const gameId = localStorage.getItem('gameId');
+        const currentUserId = parseInt(localStorage.getItem('userId'), 10);
+        const API_URL = `${window.location.origin}/api`;
+        
+        // جلب بيانات اللعبة
+        const response = await fetch(`${API_URL}/games/${gameId}`);
+        const data = await response.json();
+        
+        if (data.success && data.game) {
+            const game = data.game;
+            const isHost = currentUserId === parseInt(game.host_id, 10);
+            
+            // تحديد معلومات اللاعب الآخر
+            const otherPlayerId = isHost ? game.opponent_id : game.host_id;
+            
+            // حفظ معرّف الشخص الآخر للاستقصاء الدوري
+            currentOtherId = otherPlayerId;
+            
+            // جلب معلومات اللاعب الآخر
+            const userResponse = await fetch(`${API_URL}/users/${otherPlayerId}`);
+            const userData = await userResponse.json();
+            
+            if (userData.success && userData.user) {
+                const otherPlayer = userData.user;
+                openChat(otherPlayer.id, otherPlayer.username, otherPlayer.avatar_url);
+            }
+        }
+    } catch (error) {
+        console.error('❌ خطأ في فتح الشات:', error);
+    }
+}
+
+// فتح نافذة الشات
+async function openChat(friendId, friendName, friendAvatar) {
+    console.log(`💬 فتح الشات مع ${friendName} (ID: ${friendId})`);
+    
+    // إيقاف الاستقصاء السابق إن وجد
+    if (chatPollingInterval) {
+        clearInterval(chatPollingInterval);
+    }
+    
+    // إنشاء chat_id
+    const authToken = localStorage.getItem('authToken');
+    const userIdMatch = localStorage.getItem('userId');
+    const minId = Math.min(userIdMatch, friendId);
+    const maxId = Math.max(userIdMatch, friendId);
+    const chatId = `user_${minId}_${maxId}`;
+    
+    // إظهار modal الشات
+    const chatModal = document.getElementById('chat-modal');
+    if (chatModal) {
+        // تعيين البيانات
+        document.getElementById('chat-friend-name').textContent = friendName;
+        document.getElementById('chat-friend-avatar').src = friendAvatar || 'assets/local/images/placeholder-40.svg';
+        document.getElementById('chat-container').dataset.chatId = chatId;
+        document.getElementById('chat-container').dataset.friendId = friendId;
+        
+        chatModal.classList.remove('hidden');
+        chatModal.classList.add('flex');
+        
+        // تحميل الرسائل السابقة
+        await loadChatMessages(chatId);
+        
+        // تم تعطيل الاستقصاء الدوري: التحديث يتم عند الإرسال/الفتح فقط
+    }
+}
+
+// تحميل رسائل المحادثة
+async function loadChatMessages(chatId, silent = false) {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        const API_URL = `${window.location.origin}/api`;
+        const response = await fetch(`${API_URL}/messages/${chatId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (!silent) { // طباعة الرسالة فقط عند الطلب الأول
+                console.log(`📥 تم تحميل ${data.messages.length} رسالة`);
+            }
+            displayChatMessages(data.messages);
+            
+            // التمرير إلى آخر رسالة
+            const messagesContainer = document.getElementById('messages-container');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+    } catch (error) {
+        if (!silent) { // طباعة الخطأ فقط عند الطلب الأول
+            console.error('❌ خطأ في تحميل الرسائل:', error);
+        }
+    }
+}
+
+// عرض الرسائل
+function displayChatMessages(messages) {
+    const container = document.getElementById('messages-container');
+    const currentUserId = localStorage.getItem('userId');
+    
+    if (!container) return;
+    
+    // اكتشاف الرسائل الجديدة
+    const currentMessageCount = messages.length;
+    let hasNewMessages = false;
+    let newMessageSender = null;
+    
+    if (currentMessageCount > previousMessageCount) {
+        hasNewMessages = true;
+        // الرسالة الجديدة هي آخر رسالة
+        if (messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
+            if (lastMessage.sender_id != currentUserId) {
+                newMessageSender = lastMessage.username;
+            }
+        }
+        previousMessageCount = currentMessageCount;
+    }
+    
+    container.innerHTML = '';
+    
+    messages.forEach(msg => {
+        const isCurrentUser = msg.sender_id == currentUserId;
+        const messageEl = document.createElement('div');
+        const avatarUrl = msg.avatar_url || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23999%22/%3E%3C/svg%3E';
+        
+        messageEl.className = `flex gap-2 mb-3 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`;
+        messageEl.innerHTML = `
+            <img src="${avatarUrl}" alt="${msg.username}" class="w-8 h-8 rounded-full" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23999%22/%3E%3C/svg%3E'">
+            <div class="max-w-xs">
+                <p class="text-xs text-[#b9b49d] mb-1">${msg.username}</p>
+                <div class="bg-${isCurrentUser ? 'primary' : 'surface-darker'} text-${isCurrentUser ? '[#181711]' : 'white'} rounded-lg px-4 py-2">
+                    <p class="text-sm">${msg.message_text}</p>
+                </div>
+                <p class="text-xs text-[#b9b49d] mt-1">${new Date(msg.created_at).toLocaleTimeString('ar-SA')}</p>
+            </div>
+        `;
+        
+        container.appendChild(messageEl);
+    });
+    
+    // إظهار التنبيهات للرسائل الجديدة من الخصم
+    if (hasNewMessages && newMessageSender) {
+        console.log(`💬 رسالة جديدة من ${newMessageSender}`);
+        
+        // تشغيل الصوت
+        playNotificationSound();
+        
+        // إظهار إشعار البراوزر
+        showBrowserNotification(`رسالة جديدة من ${newMessageSender}`, {
+            body: 'لديك رسالة جديدة في الشات',
+            tag: 'chat-notification',
+            requireInteraction: true
+        });
+        
+        // إظهار رسالة مرئية في الصفحة
+        showChatAlert(`📬 رسالة جديدة من ${newMessageSender}`);
+    }
+}
+
+// إرسال رسالة
+async function sendChatMessage() {
+    const messageInput = document.getElementById('message-input');
+    const messageText = messageInput.value.trim();
+    
+    if (!messageText) {
+        return;
+    }
+    
+    try {
+        const authToken = localStorage.getItem('authToken');
+        const API_URL = `${window.location.origin}/api`;
+        const chatContainer = document.getElementById('chat-container');
+        const chatId = chatContainer.dataset.chatId;
+        const friendId = parseInt(chatContainer.dataset.friendId);
+        
+        console.log(`📤 إرسال رسالة: "${messageText}"`);
+        
+        const response = await fetch(`${API_URL}/messages/send`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                recipientIds: [friendId],
+                messageText: messageText,
+                isGroupChat: false
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`✅ تم إرسال الرسالة بنجاح`);
+            messageInput.value = '';
+            
+            // إعادة تحميل الرسائل
+            await loadChatMessages(chatId);
+          if (typeof window.refreshWaitingRoomData === 'function') {
+            await window.refreshWaitingRoomData();
+          }
+          if (typeof window.refreshPlayersList === 'function') {
+            await window.refreshPlayersList();
+          }
+        }
+    } catch (error) {
+        console.error('❌ خطأ في إرسال الرسالة:', error);
+    }
+}
+
+// إغلاق نافذة الشات
+function closeChat() {
+    // إيقاف الاستقصاء الدوري
+    if (chatPollingInterval) {
+        clearInterval(chatPollingInterval);
+        chatPollingInterval = null;
+    }
+    
+    const chatModal = document.getElementById('chat-modal');
+    if (chatModal) {
+        chatModal.classList.add('hidden');
+        chatModal.classList.remove('flex');
+    }
+}
+
+// قبول رسالة Enter في input
+document.addEventListener('DOMContentLoaded', () => {
+  initWaitingRoomSocket();
+
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) {
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+    }
+
+  const groupMessageInput = document.getElementById('group-message-input');
+  if (groupMessageInput) {
+    groupMessageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendGroupChatMessage();
+      }
+    });
+  }
+
+  ensureWaitingRoomGroupChat();
+  if (waitingRoomGroupEnsureInterval) {
+    clearInterval(waitingRoomGroupEnsureInterval);
+    waitingRoomGroupEnsureInterval = null;
+  }
+});
+</script>
+
+<!-- Modal الشات -->
+<div id="chat-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-surface-dark border border-[#393628] rounded-xl w-full max-w-2xl h-[600px] flex flex-col mx-4">
+        <!-- Chat Header -->
+        <div class="flex items-center justify-between p-4 border-b border-[#393628]">
+            <div class="flex items-center gap-3">
+                <img id="chat-friend-avatar" src="" alt="Friend" class="w-10 h-10 rounded-full">
+                <h3 id="chat-friend-name" class="text-white font-bold"></h3>
+            </div>
+            <button onclick="closeChat()" class="text-[#b9b49d] hover:text-white transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        
+        <!-- Messages Container -->
+        <div id="messages-container" class="flex-1 overflow-y-auto p-4"></div>
+        
+        <!-- Messages Input -->
+        <div id="chat-container" class="flex gap-2 p-4 border-t border-[#393628]">
+            <input 
+                id="message-input" 
+                type="text" 
+                placeholder="اكتب رسالتك هنا..." 
+                class="flex-1 bg-surface-darker border border-[#393628] rounded-lg px-4 py-2 text-white placeholder-[#b9b49d] focus:outline-none focus:border-primary"
+            >
+            <button 
+                onclick="sendChatMessage()" 
+                class="bg-primary hover:bg-accent-gold text-[#181711] font-bold px-4 py-2 rounded-lg transition-all flex items-center gap-2"
+            >
+                <span class="material-symbols-outlined text-lg">send</span>
+                إرسال
+            </button>
+        </div>
+    </div>
+</div>
+
+</body></html>

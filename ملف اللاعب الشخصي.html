@@ -1,0 +1,4167 @@
+<!DOCTYPE html>
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>الشطرنج الجغرافي - ملف اللاعب</title>
+<link href="assets/local/fonts/local-fonts.css" rel="stylesheet"/>
+<script src="assets/local/tailwind-cdn.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#eecd2b",
+                        "background-light": "#f8f8f6",
+                        "background-dark": "#181711",
+                        "surface-dark": "#23221b",
+                        "surface-darker": "#1f1e16",
+                        "accent-gold": "#C6A618",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Cairo", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Cairo', 'Space Grotesk', sans-serif;
+        }
+        .font-numbers {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        /* تأثير الظهور للإشعارات */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -20px);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen flex flex-col font-body">
+<script>
+    // التحقق من تسجيل الدخول
+    document.addEventListener('DOMContentLoaded', () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            window.location.href = 'تسجيل دخول.html';
+        }
+    });
+
+    const API_URL = `${window.location.origin}/api`;
+    const RESERVE_ARMY_STORAGE_KEY_PREFIX = 'reserveArmyValue_';
+
+    function getReserveArmyStorageKey(userId = localStorage.getItem('userId')) {
+        const normalizedUserId = String(userId || '').trim();
+        if (!normalizedUserId) {
+            return `${RESERVE_ARMY_STORAGE_KEY_PREFIX}anonymous`;
+        }
+        return `${RESERVE_ARMY_STORAGE_KEY_PREFIX}${normalizedUserId}`;
+    }
+
+    function getStoredReserveArmyValue(userId) {
+        const parsed = parseInt(localStorage.getItem(getReserveArmyStorageKey(userId)), 10);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+    }
+
+    function setStoredReserveArmyValue(userId, value) {
+        localStorage.setItem(getReserveArmyStorageKey(userId), String(value));
+    }
+
+    async function persistReserveArmyToServer(value) {
+        try {
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) return;
+
+            await fetch(`${API_URL}/auth/reserve-army`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reserveArmy: value })
+            });
+        } catch (error) {
+            console.warn('تعذر مزامنة جيش الاحتياط مع الخادم:', error);
+        }
+    }
+
+    function resolveReserveArmyValueFromUser(user) {
+        const candidates = [
+            user?.reserve_army,
+            user?.reserveArmy,
+            user?.backup_army,
+            user?.backupArmy,
+            user?.experience_points,
+            user?.experiencePoints
+        ];
+
+        for (const value of candidates) {
+            const parsed = parseInt(value, 10);
+            if (Number.isFinite(parsed) && parsed >= 0) {
+                return parsed;
+            }
+        }
+
+        return 0;
+    }
+
+    async function loadUserProfile() {
+        try {
+            const authToken = localStorage.getItem('authToken');
+            const response = await fetch(`${API_URL}/auth/profile`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const user = data.user;
+                // تحديث البيانات في الصفحة
+                updateProfileUI(user);
+            } else {
+                // إعادة توجيه للدخول إذا فشل الحصول على البيانات
+                // حماية البيانات المهمة قبل الحذف
+                safeClearStorage(['acceptedTournaments', 'currentInvitations']);
+                window.location.href = 'تسجيل دخول.html';
+            }
+        } catch (error) {
+            console.error('خطأ في تحميل البيانات:', error);
+        }
+    }
+
+    async function refreshProfileData() {
+        await loadUserProfile();
+    }
+
+    function updateProfileUI(user) {
+        const currentUserId = String(user.id || '').trim();
+        const previousUserId = String(localStorage.getItem('userId') || '').trim();
+
+        // حفظ معرف المستخدم في localStorage للاستخدام في الشات
+        localStorage.setItem('userId', user.id);
+        
+        // حفظ نوع المستخدم من البيانات المرسلة من السرفر
+        const userType = user.user_type || user.userType || localStorage.getItem('userType') || 'player';
+        localStorage.setItem('userType', userType);
+
+        // إظهار زر إنشاء بطولة للمدير فقط
+        const createTournamentBtn = document.getElementById('create-tournament-btn');
+        if (createTournamentBtn) {
+            createTournamentBtn.style.display = userType === 'admin' ? '' : 'none';
+        }
+        
+        // تحديث اسم المستخدم والرتبة
+        const userNameEl = document.getElementById('user-name-display');
+        if (userNameEl) {
+            const typePrefix = userType === 'admin' ? 'المدير' : 'اللاعب';
+            userNameEl.textContent = `${typePrefix} ${user.username}`;
+        }
+
+        // تحديث الرتبة والمستوى
+        const rankEl = document.getElementById('user-rank-display');
+        if (rankEl) {
+            rankEl.textContent = `${user.rank || 'ماستر استراتيجي'} - المستوى ${user.level || '0'}`;
+        }
+
+        // تحديث البطولات
+        const championshipsEl = document.getElementById('championships-text');
+        if (championshipsEl) {
+            championshipsEl.textContent = user.championships || 'لا توجد بطولات';
+        }
+
+        // تحديث الصورة الشخصية في جميع الأماكن
+        if (user.avatar_url) {
+            // تحديث الصورة الرئيسية
+            const avatarEl = document.getElementById('user-avatar');
+            if (avatarEl) {
+                avatarEl.style.backgroundImage = `url(${user.avatar_url})`;
+            }
+            
+            // تحديث الصورة في الهيدر
+            const headerAvatarEl = document.getElementById('header-avatar');
+            if (headerAvatarEl) {
+                headerAvatarEl.style.backgroundImage = `url(${user.avatar_url})`;
+            }
+        }
+
+        // تحديث البيانات الإحصائية
+        const stats = document.querySelectorAll('[data-stat]');
+        const statData = {
+            'games': user.total_games,
+            'wins': user.wins,
+            'winrate': Math.round((user.wins / user.total_games) * 100) || 0,
+            'avgtime': 24
+        };
+
+        document.querySelectorAll('p.text-2xl.font-bold').forEach((el, index) => {
+            const parentEl = el.parentElement;
+            if (parentEl) {
+                const labelEl = Array.from(parentEl.querySelectorAll('p')).find(p => p.textContent);
+                if (labelEl) {
+                    const label = labelEl.textContent;
+                    if (label.includes('المباريات')) el.textContent = statData.games;
+                    if (label.includes('الانتصارات')) el.textContent = statData.wins;
+                    if (label.includes('نسبة')) el.textContent = statData.winrate + '٪';
+                }
+            }
+        });
+
+        // تحديث ملخص الأداء
+        updatePerformanceSummary(user);
+
+        // تحديث الرتبة العالمية
+        if (user.global_rank) {
+            const rankElems = document.querySelectorAll('.text-white.font-numbers.font-bold.text-lg');
+            if (rankElems[0]) rankElems[0].textContent = '#' + user.global_rank;
+        }
+
+        // تحديث قيمة جيش الاحتياط
+        const reserveArmyEl = document.getElementById('reserve-army-display');
+
+        // ترحيل اختياري للقيمة القديمة فقط إذا كان نفس اللاعب نفسه مسجلاً سابقا.
+        const legacyReserveArmyValue = localStorage.getItem('reserveArmyValue');
+        if (
+            previousUserId &&
+            currentUserId &&
+            previousUserId === currentUserId &&
+            getStoredReserveArmyValue(currentUserId) === null &&
+            legacyReserveArmyValue !== null
+        ) {
+            setStoredReserveArmyValue(currentUserId, legacyReserveArmyValue);
+        }
+
+        const storedReserveArmy = getStoredReserveArmyValue(currentUserId);
+        const reserveArmyFromServer = resolveReserveArmyValueFromUser(user);
+        // نأخذ الأعلى: localStorage قد يتقدم بعد فوز لم يُزامَن، والسيرفر قد يتقدم بعد استقبال قوات من صديق
+        const resolvedReserveArmy = Math.max(storedReserveArmy ?? 0, reserveArmyFromServer ?? 0);
+
+        setStoredReserveArmyValue(currentUserId, resolvedReserveArmy);
+
+        // مزامنة القيمة مع الخادم لضمان تحميل نفس البيانات عند تسجيل الدخول من أي جهاز.
+        persistReserveArmyToServer(resolvedReserveArmy);
+
+        if (reserveArmyEl) {
+            reserveArmyEl.textContent = String(resolvedReserveArmy);
+        }
+    }
+
+    function logout() {
+        // حذف بيانات المستخدم فقط، الاحتفاظ بـ acceptedTournaments و currentInvitations
+        safeClearStorage(['acceptedTournaments', 'currentInvitations']);
+        window.location.href = 'تسجيل دخول.html';
+    }
+
+    // دالة تحديث ملخص الأداء
+    let performanceSummaryFromStats = false;
+    function updatePerformanceSummary(user) {
+        if (performanceSummaryFromStats) {
+            return;
+        }
+        const totalGames = user.total_games || 0;
+        const totalWins = user.wins || 0;
+        const totalLosses = (user.losses || 0) || (totalGames - totalWins);
+        const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+
+        // تحديث البيانات الكلية
+        document.getElementById('total-games-summary').textContent = totalGames;
+        document.getElementById('total-wins-summary').textContent = totalWins;
+        document.getElementById('total-losses-summary').textContent = totalLosses;
+        document.getElementById('win-rate-summary').textContent = winRate + '%';
+        document.getElementById('last-update-summary').textContent = 'اليوم';
+
+        // قيم افتراضية للملخص اليومي
+        const dailyGamesEl = document.getElementById('daily-games');
+        const dailyWinsEl = document.getElementById('daily-wins');
+        const dailyLossesEl = document.getElementById('daily-losses');
+        const dailyRateEl = document.getElementById('daily-rate');
+        if (dailyGamesEl) dailyGamesEl.textContent = '0';
+        if (dailyWinsEl) dailyWinsEl.textContent = '0';
+        if (dailyLossesEl) dailyLossesEl.textContent = '0';
+        if (dailyRateEl) dailyRateEl.textContent = '0%';
+
+        // حساب إحصائيات هذا الأسبوع (مثالي)
+        // يمكن تطويره لاحقاً بقراءة من قاعدة البيانات
+        const weeklyGames = Math.min(totalGames, Math.max(0, totalGames - 5)); // تقريبي
+        const weeklyWins = Math.min(totalWins, Math.max(0, totalWins - 2)); // تقريبي
+        const weeklyLosses = weeklyGames - weeklyWins;
+        const weeklyRate = weeklyGames > 0 ? Math.round((weeklyWins / weeklyGames) * 100) : 0;
+
+        document.getElementById('weekly-games').textContent = weeklyGames;
+        document.getElementById('weekly-wins').textContent = weeklyWins;
+        document.getElementById('weekly-losses').textContent = weeklyLosses;
+        document.getElementById('weekly-rate').textContent = weeklyRate + '%';
+    }
+
+    function logout() {
+        // حذف بيانات المستخدم فقط، الاحتفاظ بـ acceptedTournaments و currentInvitations
+        safeClearStorage(['acceptedTournaments', 'currentInvitations']);
+        window.location.href = 'تسجيل دخول.html';
+    }
+    async function checkOpenGame() {
+        try {
+            const userId = localStorage.getItem('userId');
+            const response = await fetch(`${API_URL}/games/user-active/${userId}`);
+            const data = await response.json();
+            
+            if (data.success && data.game) {
+                // المستخدم لديه مباراة مفتوحة بالفعل
+                return data.game;
+            }
+            return null;
+        } catch (error) {
+            console.error('خطأ في التحقق من المباريات المفتوحة:', error);
+            return null;
+        }
+    }
+
+    // دالة للتحقق من المعارك المحذوفة وحذفها من قائمة المعارك
+    async function cleanupDeletedGames() {
+        try {
+            const userId = parseInt(localStorage.getItem('userId'), 10);
+            const response = await fetch(`${API_URL}/games/available?user_id=${encodeURIComponent(userId)}`);
+            const result = await response.json();
+            
+            if (result.success && result.games) {
+                // فحص كل مباراة - إذا كانت المباراة محذوفة أو لا يمكن الوصول إليها
+                for (const game of result.games) {
+                    const gameResponse = await fetch(`${API_URL}/games/${game.id}`);
+                    if (!gameResponse.ok) {
+                        // اللعبة محذوفة، لا تفعل شيء (ستتم إزالتها من القائمة تلقائياً)
+                        console.log(`❌ المعركة ${game.id} محذوفة`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('خطأ في تنظيف المعارك المحذوفة:', error);
+        }
+    }
+
+    async function createGame() {
+        // التحقق من وجود مباراة مفتوحة
+        const openGame = await checkOpenGame();
+        
+        if (openGame) {
+            console.log('المباراة المفتوحة:', openGame);
+            
+            // إنشاء dialog مخصص بدلاً من alert
+            const userConfirm = confirm(`لديك مباراة مفتوحة بالفعل: "${openGame.game_name}"\n\nهل تريد حذف المباراة السابقة والإنشاء مباراة جديدة؟\n\nانقر على "موافق" لحذف المباراة\nأو "إلغاء" للعودة`);
+            
+            if (userConfirm) {
+                // حذف المباراة القديمة
+                try {
+                    const gameId = openGame.id || openGame.gameId;
+                    console.log('جاري حذف المباراة بـ ID:', gameId);
+                    console.log('URL:', `${API_URL}/games/${gameId}`);
+                    
+                    const response = await fetch(`${API_URL}/games/${gameId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    console.log('حالة الرد:', response.status, response.statusText);
+                    
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        console.error('خطأ في parsing الرد:', e);
+                        data = { success: false, message: 'خطأ في parsing الرد' };
+                    }
+                    
+                    console.log('بيانات الرد:', data);
+                    
+                    if (data.success) {
+                        console.log('✓ تم حذف المباراة بنجاح');
+                        
+                        // مسح المباراة من قائمة المعارك (تحديث فوري)
+                        await loadAvailableGames();
+                        
+                        alert('✓ تم حذف المباراة بنجاح');
+                        
+                        // بعد الحذف، انتقل لصفحة الإنشاء
+                        setTimeout(() => {
+                            window.location.href = 'إنشاء مباراة.html';
+                        }, 500);
+                    } else {
+                        console.error('❌ فشل الحذف:', data.message);
+                        alert('❌ خطأ في حذف المباراة: ' + (data.message || 'حاول مرة أخرى'));
+                    }
+                } catch (error) {
+                    console.error('❌ خطأ في حذف المباراة:', error);
+                    alert('❌ خطأ في الاتصال: ' + error.message);
+                }
+            }
+            return;
+        }
+        
+        // إذا لم تكن هناك مباراة مفتوحة، انتقل لصفحة الإنشاء
+        window.location.href = 'إنشاء مباراة.html';
+    }
+
+    function createTournament() {
+        localStorage.removeItem('editingTournamentId');
+        localStorage.removeItem('editingTournamentData');
+        window.location.href = 'إنشاء بطولة جديدة.html';
+    }
+
+    // تحديث البيانات عند فتح الصفحة
+    window.addEventListener('load', () => {
+        console.log('🚀 تحميل الصفحة');
+        
+        // التحقق من البيانات المحفوظة وطباعتها
+        console.log('🔍 ===== فحص البيانات المحفوظة =====');
+        const acceptedTournaments = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+        const currentInvitations = JSON.parse(localStorage.getItem('currentInvitations')) || [];
+        console.log('📦 acceptedTournaments:', acceptedTournaments);
+        console.log('📬 currentInvitations:', currentInvitations);
+        console.log(`✅ إجمالي البطولات المقبولة: ${acceptedTournaments.length}`);
+        console.log(`✅ إجمالي الدعوات الحالية: ${currentInvitations.length}`);
+        
+        loadUserProfile();
+        loadFriendRequests();
+        loadAcceptedFriends();
+        loadGroupChats();
+        loadUpcomingTournaments();
+        loadTournamentInvitations();
+        
+        // فحص الرسائل الجديدة فوراً عند التحميل
+        console.log('🔔 بدء فحص الرسائل الجديدة');
+        checkUnreadMessages();
+        
+        // تحديث الطلبات المعلقة كل 3 ثواني
+        setInterval(loadFriendRequests, 3000);
+        // تحديث الأصدقاء المقبولين كل 5 ثواني
+        setInterval(loadAcceptedFriends, 5000);
+        // تحديث المجموعات كل 7 ثواني
+        setInterval(loadGroupChats, 3000);
+        
+        // ✅ فحص الرسائل الجديدة كل 2 ثانية
+        unreadMessagesCheckInterval = setInterval(() => {
+            checkUnreadMessages();
+        }, 2000);
+        
+        // إيقاف فحص الرسائل عند إغلاق الصفحة
+        window.addEventListener('beforeunload', () => {
+            if (unreadMessagesCheckInterval) {
+                clearInterval(unreadMessagesCheckInterval);
+            }
+        });
+    });
+
+    // دالة لمعالجة رفع الصورة
+    async function handleAvatarUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // التحقق من نوع الملف
+        if (!file.type.startsWith('image/')) {
+            alert('⚠️ يرجى اختيار صورة صالحة');
+            return;
+        }
+
+        // التحقق من حجم الملف (أقل من 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('⚠️ حجم الصورة كبير جداً. يرجى اختيار صورة أقل من 5MB');
+            return;
+        }
+
+        // عرض الصورة فوراً قبل الرفع في جميع الأماكن
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const avatarUrl = e.target.result;
+            
+            // تحديث الصورة الرئيسية
+            const avatarEl = document.getElementById('user-avatar');
+            if (avatarEl) {
+                avatarEl.style.backgroundImage = `url(${avatarUrl})`;
+            }
+            
+            // تحديث الصورة في الهيدر
+            const headerAvatarEl = document.getElementById('header-avatar');
+            if (headerAvatarEl) {
+                headerAvatarEl.style.backgroundImage = `url(${avatarUrl})`;
+            }
+        };
+        reader.readAsDataURL(file);
+
+        // رفع الصورة إلى السرفر
+        try {
+            const authToken = localStorage.getItem('authToken');
+            const formData = new FormData();
+            formData.append('avatar', file);
+
+            const response = await fetch(`${API_URL}/auth/update-avatar`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                console.log('✓ تم تحديث الصورة بنجاح');
+                // يمكن عرض رسالة نجاح
+                showNotification('✓ تم تحديث الصورة الشخصية بنجاح', 'success');
+            } else {
+                alert('❌ فشل تحديث الصورة: ' + data.message);
+                // إعادة تحميل الصورة القديمة
+                loadUserProfile();
+            }
+        } catch (error) {
+            console.error('خطأ في رفع الصورة:', error);
+            alert('❌ خطأ في رفع الصورة');
+            // إعادة تحميل الصورة القديمة
+            loadUserProfile();
+        }
+    }
+
+    // دالة لعرض الإشعارات
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-bold animate-fade-in ${
+            type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+        }`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.5s';
+            setTimeout(() => notification.remove(), 500);
+        }, 3000);
+    }
+
+    function editTournament(tournamentId) {
+        try {
+            const tournaments = JSON.parse(localStorage.getItem('upcomingTournaments')) || [];
+            const targetTournament = tournaments.find(t => String(t.id) === String(tournamentId));
+
+            if (!targetTournament) {
+                showNotification('❌ لم يتم العثور على بيانات البطولة للتعديل', 'error');
+                return;
+            }
+
+            localStorage.setItem('editingTournamentId', String(tournamentId));
+            localStorage.setItem('editingTournamentData', JSON.stringify(targetTournament));
+            window.location.href = 'إنشاء بطولة جديدة.html';
+        } catch (error) {
+            console.error('❌ خطأ في فتح وضع تعديل البطولة:', error);
+            showNotification('❌ تعذر فتح البطولة للتعديل', 'error');
+        }
+    }
+
+    async function deleteTournamentInvitation(invitationId) {
+        try {
+            if (!invitationId) {
+                showNotification('❌ لا يمكن حذف الدعوة: معرف الدعوة غير موجود', 'error');
+                return;
+            }
+
+            const confirmed = confirm('هل تريد حذف الدعوة؟');
+            if (!confirmed) return;
+
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                showNotification('❌ يرجى تسجيل الدخول أولاً', 'error');
+                return;
+            }
+
+            const response = await fetch(`${API_URL}/tournaments/respond-invitation`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    invitationId: Number(invitationId),
+                    response: 'rejected'
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showNotification('🗑️ تم حذف الدعوة', 'success');
+                await loadUpcomingTournaments();
+            } else {
+                showNotification(`❌ فشل حذف الدعوة: ${result.message || 'خطأ غير معروف'}`, 'error');
+            }
+        } catch (error) {
+            console.error('❌ خطأ في حذف الدعوة:', error);
+            showNotification('❌ خطأ في حذف الدعوة', 'error');
+        }
+    }
+
+    async function deleteAdminTournament(tournamentId) {
+        try {
+            if (!tournamentId) {
+                showNotification('❌ لا يمكن حذف البطولة: معرف البطولة غير موجود', 'error');
+                return;
+            }
+
+            const tournaments = JSON.parse(localStorage.getItem('upcomingTournaments')) || [];
+            const targetTournament = tournaments.find(t => String(t.id) === String(tournamentId));
+
+            if (!targetTournament) {
+                showNotification('❌ لم يتم العثور على البطولة المطلوب حذفها', 'error');
+                return;
+            }
+
+            const confirmed = confirm(`هل تريد حذف البطولة "${targetTournament.name}"؟\nلا يمكن التراجع عن هذا الإجراء!`);
+            if (!confirmed) return;
+
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                showNotification('❌ يرجى تسجيل الدخول أولاً', 'error');
+                return;
+            }
+
+            const response = await fetch(`${API_URL}/tournaments/${encodeURIComponent(tournamentId)}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                showNotification(`❌ فشل حذف البطولة: ${result.message || 'خطأ غير معروف'}`, 'error');
+                return;
+            }
+
+            // تنظيف النسخة المحلية بعد نجاح الحذف من السيرفر
+            const updatedTournaments = tournaments.filter(t => String(t.id) !== String(tournamentId));
+            localStorage.setItem('upcomingTournaments', JSON.stringify(updatedTournaments));
+
+            // تنظيف أي نسخة مقبولة محلية لنفس البطولة (إن وجدت)
+            const acceptedTournaments = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+            const cleanedAccepted = acceptedTournaments.filter(t => String(t.tournament_id || t.id) !== String(tournamentId));
+            localStorage.setItem('acceptedTournaments', JSON.stringify(cleanedAccepted));
+
+            showNotification('🗑️ تم حذف البطولة بنجاح', 'success');
+            await loadUpcomingTournaments();
+        } catch (error) {
+            console.error('❌ خطأ في حذف البطولة:', error);
+            showNotification('❌ خطأ في حذف البطولة', 'error');
+        }
+    }
+
+    async function goToTournamentDetails(tournamentId) {
+        if (!tournamentId) {
+            showNotification('❌ لا يمكن فتح التفاصيل: معرف البطولة غير موجود', 'error');
+            return;
+        }
+        window.location.href = `تفاصيل البطولة والمتابعة.html?tournamentId=${encodeURIComponent(tournamentId)}`;
+    }
+
+    // دالة لحماية البيانات المهمة عند حذف localStorage
+    function safeClearStorage(keepKeys = ['acceptedTournaments', 'currentInvitations']) {
+        console.log('🔐 حماية البيانات المهمة:');
+
+        const reserveArmyScopedKeys = Object.keys(localStorage).filter(
+            (key) => key.startsWith(RESERVE_ARMY_STORAGE_KEY_PREFIX)
+        );
+        const protectedKeys = Array.from(new Set([...keepKeys, ...reserveArmyScopedKeys]));
+        
+        // حفظ البيانات المهمة
+        const savedData = {};
+        protectedKeys.forEach(key => {
+            const value = localStorage.getItem(key);
+            if (value) {
+                savedData[key] = value;
+                console.log(`   ✅ تم حفظ: ${key}`);
+            }
+        });
+        
+        // حذف كل شيء
+        localStorage.clear();
+        
+        // استرجاع البيانات المهمة
+        Object.entries(savedData).forEach(([key, value]) => {
+            localStorage.setItem(key, value);
+            console.log(`   🔄 تم استرجاع: ${key}`);
+        });
+        
+        console.log('✅ تم حماية البيانات بنجاح');
+    }
+    
+    // دالة للتحقق من صحة البيانات المحفوظة
+    function verifyStorageData() {
+        const acceptedTournaments = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+        const currentInvitations = JSON.parse(localStorage.getItem('currentInvitations')) || [];
+        
+        console.log('🔍 التحقق من صحة البيانات:');
+        console.log(`   📦 البطولات المقبولة: ${acceptedTournaments.length}`);
+        console.log(`   📬 الدعوات الحالية: ${currentInvitations.length}`);
+        
+        if (acceptedTournaments.length > 0) {
+            console.log('   ✅ البيانات موجودة وآمنة');
+            return true;
+        } else {
+            console.log('   ⚠️ لا توجد بيانات محفوظة');
+            return false;
+        }
+    }
+    
+    // اجعل الدوال متاحة في window
+    window.safeClearStorage = safeClearStorage;
+    window.verifyStorageData = verifyStorageData;
+
+    // دالة للتحقق من البيانات المحفوظة (للاختبار)
+    function debugStorageData() {
+        console.log('=== 🔍 فحص بيانات localStorage ===');
+        const acceptedTournaments = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+        const upcomingTournaments = JSON.parse(localStorage.getItem('upcomingTournaments')) || [];
+        
+        console.log('📦 البطولات المقبولة:', acceptedTournaments);
+        console.log('📋 البطولات القادمة:', upcomingTournaments);
+        console.log(`إجمالي المقبولة: ${acceptedTournaments.length}`);
+        console.log(`إجمالي القادمة: ${upcomingTournaments.length}`);
+        
+        // تنظيف البيانات المحفوظة
+        if (acceptedTournaments.length === 0 && upcomingTournaments.length === 0) {
+            console.warn('⚠️ لا توجد بطولات محفوظة');
+        }
+    }
+    
+    // اجعل الدالة متاحة في window لاستخدامها من console
+    window.debugStorageData = debugStorageData;
+    window.clearAcceptedTournaments = () => {
+        localStorage.removeItem('acceptedTournaments');
+        console.log('✅ تم تنظيف البطولات المقبولة');
+    };
+
+    async function acceptTournamentInvitation(invitationId, tournamentId) {
+        try {
+            if (!invitationId) {
+                showNotification('❌ لا يمكن قبول الدعوة: معرف الدعوة غير موجود', 'error');
+                return;
+            }
+
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                showNotification('❌ يرجى تسجيل الدخول أولاً', 'error');
+                return;
+            }
+
+            console.log('🎯 بدء قبول الدعوة:', { invitationId, tournamentId });
+
+            // أولاً: إقرار الدعوة في الخادم
+            const response = await fetch(`${API_URL}/tournaments/respond-invitation`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    invitationId: Number(invitationId),
+                    response: 'accepted'
+                })
+            });
+
+            const result = await response.json();
+            console.log('📊 نتيجة إقرار الدعوة:', result);
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'فشل في قبول الدعوة');
+            }
+
+            // حفظ معرّف البطولة المقبول مباشرة كحماية إضافية
+            const acceptedIds = JSON.parse(localStorage.getItem('acceptedInvitationIds')) || [];
+            if (!acceptedIds.includes(String(invitationId))) {
+                acceptedIds.push(String(invitationId));
+                localStorage.setItem('acceptedInvitationIds', JSON.stringify(acceptedIds));
+                console.log('💾 تم حفظ معرّف الدعوة المقبولة:', invitationId);
+            }
+
+            // ثانياً: جلب بيانات البطولة من البيانات المحفوظة أو من API
+            console.log('🔄 جاري جلب بيانات البطولة...');
+            
+            let tournamentData = null;
+            
+            // أولاً: حاول الحصول من البيانات المحفوظة
+            const savedInvitations = JSON.parse(localStorage.getItem('currentInvitations')) || [];
+            console.log('📌 البيانات المحفوظة من آخر تحميل:', savedInvitations);
+            
+            tournamentData = savedInvitations.find(inv => 
+                String(inv.tournament_id) === String(tournamentId)
+            );
+
+            console.log('🔍 البطولة من البيانات المحفوظة:', tournamentData);
+
+            // إن لم توجد، جلب من API
+            if (!tournamentData) {
+                console.log('⚠️ لم توجد البطولة في البيانات المحفوظة، جاري الجلب من API...');
+                const tournamentResponse = await fetch(`${API_URL}/tournaments/my-invitations`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (tournamentResponse.ok) {
+                    const invitationsData = await tournamentResponse.json();
+                    console.log('📋 جميع الدعوات من API:', invitationsData.invitations);
+                    console.log('📌 عدد الدعوات المسترجعة:', invitationsData.invitations?.length || 0);
+                    console.log('🔎 البحث عن tournament_id:', tournamentId);
+                    
+                    // طباعة كل دعوة للمقارنة
+                    if (invitationsData.invitations && invitationsData.invitations.length > 0) {
+                        invitationsData.invitations.forEach((inv, idx) => {
+                            console.log(`   [${idx}] tournament_id=${inv.tournament_id}, name=${inv.tournament_name}`);
+                        });
+                    }
+                    
+                    tournamentData = invitationsData.invitations?.find(inv => 
+                        String(inv.tournament_id) === String(tournamentId)
+                    );
+                    
+                    console.log('🎯 نتيجة البحث:', tournamentData);
+                    
+                    // حفظ البيانات الجديدة
+                    if (invitationsData.invitations) {
+                        localStorage.setItem('currentInvitations', JSON.stringify(invitationsData.invitations));
+                        console.log('💾 تم تحديث البيانات المحفوظة');
+                    }
+                } else {
+                    console.error('❌ فشل جلب الدعوات من API:', tournamentResponse.status);
+                }
+            }
+
+            console.log('📌 البطولة النهائية للحفظ:', tournamentData);
+
+            // ثالثاً: حفظ البطولة في localStorage
+            if (tournamentData && tournamentData.tournament_name) {
+                console.log('💾 جاري حفظ البطولة في السجل...');
+                
+                let acceptedTournaments = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+                console.log('📦 البطولات المقبولة الحالية:', acceptedTournaments);
+                
+                const normalizedId = String(tournamentData.tournament_id);
+                const exists = acceptedTournaments.find(t => String(t.tournament_id) === normalizedId);
+                
+                console.log('🔎 التحقق من التكرار:', { normalizedId, exists });
+                
+                if (!exists) {
+                    const newTournament = {
+                        tournament_id: normalizedId,
+                        tournament_name: tournamentData.tournament_name || 'بدون اسم',
+                        start_date: tournamentData.start_date || new Date().toISOString(),
+                        end_date: tournamentData.end_date || new Date().toISOString(),
+                        max_participants: tournamentData.max_participants || 16,
+                        prizes: tournamentData.prizes || '',
+                        status: 'accepted',
+                        accepted_at: new Date().toISOString()
+                    };
+                    
+                    console.log('✏️ البطولة الجديدة للحفظ:', newTournament);
+                    acceptedTournaments.push(newTournament);
+                    localStorage.setItem('acceptedTournaments', JSON.stringify(acceptedTournaments));
+                    console.log('✅ تم حفظ البطولة بنجاح!');
+                    console.log('📦 البطولات المقبولة بعد الحفظ:', acceptedTournaments);
+                    
+                    // التحقق الفوري من الحفظ
+                    const verifyData = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+                    console.log('🔐 التحقق من الحفظ في localStorage:', verifyData);
+                    console.log(`✅ عدد البطولات المحفوظة الآن: ${verifyData.length}`);
+                } else {
+                    console.log('ℹ️ البطولة موجودة بالفعل في السجل');
+                }
+            } else {
+                console.error('❌ لم يتم العثور على بيانات البطولة من أي مصدر!');
+                console.error('   البيانات المستلمة:', { tournamentData, hasName: tournamentData?.tournament_name });
+                
+                // بديل: محاولة جلب البيانات من جدول البطولات المعروض
+                console.log('🔄 محاولة الحصول على البيانات من الجدول المعروض...');
+                const tableRows = document.querySelectorAll('#tournaments-table-body tr');
+                console.log(`📋 عدد الصفوف المعروضة: ${tableRows.length}`);
+                
+                // البحث عن الصف الذي يحتوي على tournament_id الصحيح
+                for (const row of tableRows) {
+                    // محاولة استخراج البيانات من الصف
+                    const tournamentNameEl = row.querySelector('[data-tournament-id]');
+                    if (tournamentNameEl && String(tournamentNameEl.getAttribute('data-tournament-id')) === String(tournamentId)) {
+                        console.log('✅ وجدنا الصف في الجدول!', row);
+                        
+                        // استخراج البيانات من الصف
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length > 0) {
+                            const fallbackTournament = {
+                                tournament_id: String(tournamentId),
+                                tournament_name: cells[0]?.textContent?.trim() || 'بطولة',
+                                start_date: new Date().toISOString(),
+                                end_date: new Date(Date.now() + 30*24*60*60*1000).toISOString(),
+                                max_participants: 16,
+                                prizes: '',
+                                status: 'accepted',
+                                accepted_at: new Date().toISOString()
+                            };
+                            
+                            let acceptedTournaments = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+                            acceptedTournaments.push(fallbackTournament);
+                            localStorage.setItem('acceptedTournaments', JSON.stringify(acceptedTournaments));
+                            console.log('✅ تم حفظ البطولة من الجدول بنجاح (fallback):', fallbackTournament);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            showNotification('✅ تم قبول الدعوة وإضافتها لسجل البطولات', 'success');
+            
+            // رابعاً: تحديث الواجهة
+            console.log('🔄 جاري تحديث الواجهة...');
+            await loadUpcomingTournaments();
+            
+            // فحص نهائي للتحقق من الحفظ
+            console.log('🔐 ===== الفحص النهائي =====');
+            const finalCheck = JSON.parse(localStorage.getItem('acceptedTournaments')) || [];
+            console.log(`✅ عدد البطولات المحفوظة نهائياً: ${finalCheck.length}`);
+            console.log('📦 البيانات النهائية:', finalCheck);
+            if (finalCheck.length === 0) {
+                console.warn('⚠️ تحذير: لم يتم حفظ أي بطولات!');
+            } else {
+                console.log('✅ البيانات محفوظة بنجاح!');
+            }
+            
+            // الانتقال بعد تحديث البيانات
+            setTimeout(() => {
+                console.log('🔗 جاري الانتقال لتفاصيل البطولة...');
+                goToTournamentDetails(tournamentId);
+            }, 1500);
+
+        } catch (error) {
+            console.error('❌ خطأ في قبول الدعوة:', error.message);
+            console.error('Stack trace:', error.stack);
+            showNotification(`❌ خطأ: ${error.message}`, 'error');
+        }
+    }
+
+    // دالة لتحميل وعرض البطولات القادمة
+    async function loadUpcomingTournaments() {
+        try {
+            const tableBody = document.getElementById('tournaments-table-body');
+            if (!tableBody) return;
+
+            const currentUserId = parseInt(localStorage.getItem('userId') || '0', 10);
+            const currentUserType = localStorage.getItem('userType') || 'player';
+            
+            console.log('🏆 جاري تحميل البطولات القادمة...');
+            
+            // جلب البطولات التي أنشأها المستخدم من localStorage
+            let tournaments = JSON.parse(localStorage.getItem('upcomingTournaments')) || [];
+            
+            // جلب البطولات من الدعوات المستلمة
+            try {
+                const authToken = localStorage.getItem('authToken');
+                if (authToken) {
+                    const API_URL = `${window.location.origin}/api`;
+                    const response = await fetch(`${API_URL}/tournaments/my-invitations?status=pending`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        // Filter to show only PENDING invitations in the upcoming tournaments list
+                        const pendingInvitations = (data.invitations || []).filter(inv => inv.status === 'pending');
+                        
+                        if (pendingInvitations.length > 0) {
+                            console.log(`📧 وجدنا ${pendingInvitations.length} دعوات بطولة قيد الانتظار`);
+                            console.log('📌 بيانات الدعوات الكاملة:', pendingInvitations);
+                            
+                            // حفظ بيانات الدعوات الكاملة في localStorage لاستخدامها لاحقاً
+                            localStorage.setItem('currentInvitations', JSON.stringify(pendingInvitations));
+                            
+                            // تحويل الدعوات إلى بطولات
+                            const invitedTournaments = pendingInvitations.map(inv => ({
+                                id: inv.tournament_id,
+                                invitationId: inv.id,
+                                name: inv.tournament_name,
+                                startDate: inv.start_date,
+                                endDate: inv.end_date,
+                                participants: inv.max_participants || 0,
+                                prizes: inv.prizes || '',
+                                isInvitedTournament: true,
+                                invitationType: inv.status,
+                                // إضافة البيانات الكاملة
+                                _rawData: inv
+                            }));
+                            
+                            // دمج البطولات
+                            tournaments = [...tournaments, ...invitedTournaments];
+                            console.log(`✅ إجمالي البطولات: ${tournaments.length}`);
+                        } else {
+                            console.log('📭 لا توجد دعوات بطولات قيد الانتظار');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ لم نتمكن من جلب دعوات البطولات:', error.message);
+            }
+            
+            if (tournaments.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-[#b9b49d]">
+                            <div class="flex flex-col items-center gap-2">
+                                <span class="material-symbols-outlined text-4xl text-primary/30">event_note</span>
+                                <p>لا توجد بطولات قادمة حالياً</p>
+                                <p class="text-xs">تابع القائمة للتعرف على البطولات الجديدة!</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // إزالة البطولات المكررة
+            const uniqueTournaments = Array.from(new Map(tournaments.map(t => [t.id, t])).values());
+            
+            // ترتيب البطولات حسب التاريخ
+            const sortedTournaments = uniqueTournaments.sort((a, b) => {
+                return new Date(a.startDate) - new Date(b.startDate);
+            });
+            
+            // عرض البطولات
+            tableBody.innerHTML = sortedTournaments.map(tournament => {
+                const startDate = new Date(tournament.startDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                // تحديد الحالة
+                const status = startDate <= today ? 'جارية' : 'قادمة';
+                const statusColor = status === 'جارية' ? 'text-yellow-400 bg-yellow-400/10' : 'text-green-400 bg-green-400/10';
+                
+                // تنسيق التاريخ
+                const formattedStartDate = startDate.toLocaleDateString('ar-SA', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                
+                const formattedEndDate = new Date(tournament.endDate).toLocaleDateString('ar-SA', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                const tournamentCreatorId = parseInt(tournament.creatorId || tournament.createdBy || tournament.created_by || '0', 10);
+                const isCurrentAdminCreator = !tournament.isInvitedTournament && (
+                    (tournamentCreatorId > 0 && tournamentCreatorId === currentUserId) ||
+                    (currentUserType === 'admin' && !tournamentCreatorId)
+                );
+                
+                // زر الانضمام يظهر فقط للبطولات القادمة
+                const actionButton = tournament.isInvitedTournament
+                    ? `<div class="flex items-center gap-2 justify-end">
+                        <button class="px-4 py-2 bg-primary hover:bg-accent-gold text-[#181711] rounded text-xs font-bold transition-colors" onclick="acceptTournamentInvitation('${tournament.invitationId || ''}', '${tournament.id || ''}')">انضم</button>
+                        <button class="px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500 hover:text-white rounded text-xs font-bold transition-colors" onclick="deleteTournamentInvitation('${tournament.invitationId || ''}')">حذف</button>
+                    </div>`
+                    : (status === 'قادمة'
+                        ? (isCurrentAdminCreator
+                            ? `<div class="flex items-center gap-2 justify-end">
+                                <button class="px-4 py-2 bg-primary hover:bg-accent-gold text-[#181711] rounded text-xs font-bold transition-colors" onclick="editTournament('${tournament.id}')">تعديل</button>
+                                <button class="px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500 hover:text-white rounded text-xs font-bold transition-colors" onclick="deleteAdminTournament('${tournament.id}')">حذف</button>
+                            </div>`
+                            : `<button class="px-4 py-2 bg-primary hover:bg-accent-gold text-[#181711] rounded text-xs font-bold transition-colors" onclick="goToTournamentDetails('${tournament.id || ''}')">انضم</button>`)
+                        : `<span class="text-[#b9b49d] text-xs">لا يمكن الانضمام</span>`);
+                
+                return `
+                    <tr class="hover:bg-[#2d2a1e] transition-colors group" data-tournament-id="${tournament.id || ''}">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="flex flex-col">
+                                <span class="text-white font-bold text-sm" data-tournament-id="${tournament.id || ''}">${tournament.name || 'بدون اسم'}</span>
+                                ${tournament.isInvitedTournament ? '<span class="text-primary text-xs">📧 دعوة مستلمة</span>' : ''}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="flex flex-col">
+                                <span class="text-white text-xs">${formattedStartDate}</span>
+                                <span class="text-[#b9b49d] text-xs">إلى</span>
+                                <span class="text-white text-xs">${formattedEndDate}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center">
+                            <span class="text-white font-bold text-sm">${tournament.participants || 16}</span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center">
+                            <span class="text-white text-xs max-w-xs truncate block" title="${tournament.prizes}">
+                                ${tournament.prizes ? tournament.prizes.substring(0, 30) + (tournament.prizes.length > 30 ? '...' : '') : 'غير محددة'}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-center">
+                            <span class="inline-block px-3 py-1 rounded-full text-sm font-bold ${statusColor}">
+                                ${status}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-left pl-8">
+                            ${actionButton}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+        } catch (error) {
+            console.error('❌ خطأ في تحميل البطولات:', error);
+        }
+    }
+
+    // دالة لتحميل وعرض دعوات البطولة الواردة
+    async function loadTournamentInvitations() {
+        try {
+            const authToken = localStorage.getItem('authToken');
+            const userId = localStorage.getItem('userId');
+            
+            if (!authToken) {
+                console.log('⚠️ لا يوجد توكن مصادقة. تخطي تحميل دعوات البطولة.');
+                return;
+            }
+            
+            console.log('\n📬 ===== جلب دعوات البطولات من الخادم =====');
+            console.log(`👤 معرف المستخدم من localStorage: ${userId}`);
+            console.log(`🔑 التوكن: ${authToken.substring(0, 30)}...`);
+            
+            const API_URL = `${window.location.origin}/api`;
+            console.log(`📍 عنوان API: ${API_URL}`);
+            
+            const response = await fetch(`${API_URL}/tournaments/my-invitations`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            console.log(`📊 استجابة API: ${response.status} ${response.statusText}`);
+            
+            if (!response.ok) {
+                throw new Error(`فشل في جلب دعوات البطولة: ${response.status}`);
+            }
+            
+            const resultData = await response.json();
+            
+            console.log('✅ بيانات الدعوات المستلمة:', resultData);
+            
+            if (!resultData.success || !resultData.invitations) {
+                console.log('✅ لا توجد دعوات بطولة جديدة');
+                return;
+            }
+            
+            const myInvitations = resultData.invitations;
+            
+            console.log(`📬 عدد دعوات البطولة الواردة: ${myInvitations.length}`);
+            
+            if (myInvitations.length === 0) {
+                console.log('✅ لا توجد دعوات بطولة جديدة');
+                return;
+            }
+            
+            // عرض الدعوات كإشعارات
+            myInvitations.forEach(invitation => {
+                showTournamentInvitationNotification(invitation);
+            });
+            
+        } catch (error) {
+            console.error('❌ خطأ في تحميل دعوات البطولة:', error);
+        }
+    }
+
+    // دالة لعرض إشعار دعوة البطولة
+    function showTournamentInvitationNotification(invitation) {
+        const notification = document.createElement('div');
+        notification.className = 'fixed bottom-4 right-4 z-40 bg-gradient-to-r from-primary to-accent-gold rounded-lg shadow-2xl p-4 max-w-sm cursor-pointer animate-fade-in';
+        
+        const startDate = new Date(invitation.start_date).toLocaleDateString('ar-SA', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+        
+        notification.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="size-12 rounded-full bg-[#181711] flex items-center justify-center flex-shrink-0">
+                    <span class="material-symbols-outlined text-primary text-xl">emoji_events</span>
+                </div>
+                <div class="flex-1">
+                    <p class="text-[#181711] font-bold text-sm">🎯 دعوة بطولة جديدة</p>
+                    <p class="text-[#181711] text-xs mt-1">${invitation.tournament_name}</p>
+                    <p class="text-[#181711]/70 text-xs mt-0.5">📅 ${startDate}</p>
+                </div>
+                <button class="text-[#181711] ml-2 text-xl" onclick="this.parentElement.parentElement.remove()">×</button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // إزالة الإشعار بعد 6 ثواني
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 6000);
+    }
+</script>
+<div class="border-b border-[#393628] bg-background-dark/95 backdrop-blur sticky top-0 z-50">
+<div class="px-6 lg:px-12 py-3 flex items-center justify-between max-w-[1440px] mx-auto w-full">
+<div class="flex items-center gap-4 text-white">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">castle</span>
+</div>
+<h1 class="text-white text-xl font-bold leading-tight tracking-wide hidden sm:block">الشطرنج الجغرافي</h1>
+</div>
+<nav class="hidden lg:flex items-center gap-8 mx-8">
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="index.html">الرئيسية</a>
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="سجل البطولات.html">سجل البطولات</a>
+<a class="text-primary text-sm font-bold leading-normal border-b-2 border-primary pb-0.5" href="#">الملف الشخصي</a>
+</nav>
+<div class="flex items-center gap-3 lg:gap-4">
+<button class="hidden md:flex items-center justify-center rounded-lg h-10 px-5 border border-primary/30 text-primary hover:bg-primary hover:text-[#181711] transition-all text-sm font-bold leading-normal group" onclick="createGame()">
+<span class="truncate ml-2">إنشاء مباراة</span>
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">add_circle</span>
+</button>
+<button id="create-tournament-btn" style="display: none;" class="hidden md:flex items-center justify-center rounded-lg h-10 px-5 border border-primary/30 text-primary hover:bg-primary hover:text-[#181711] transition-all text-sm font-bold leading-normal group" onclick="createTournament()">
+<span class="truncate ml-2">إنشاء بطولة</span>
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">emoji_events</span>
+</button>
+<button class="hidden md:flex items-center justify-center rounded-lg h-10 px-5 border border-primary/30 text-primary hover:bg-primary hover:text-[#181711] transition-all text-sm font-bold leading-normal group" onclick="logout()" title="تسجيل الخروج">
+<span class="truncate ml-2">خروج</span>
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">logout</span>
+</button>
+<div id="header-avatar" class="bg-center bg-no-repeat bg-cover rounded-full size-10 border-2 border-[#393628] cursor-pointer hover:border-primary transition-colors" data-alt="User avatar thumbnail"></div>
+</div>
+</div>
+</div>
+<main class="flex-1 w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="mb-8">
+<h2 class="text-white text-3xl font-bold leading-tight">ملف اللاعب الشخصي</h2>
+<p class="text-[#b9b49d] text-sm mt-2">إحصائيات المعارك وسجل الانتصارات</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<div class="lg:col-span-4 flex flex-col gap-6">
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-6 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-full h-24 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none"></div>
+<div class="flex flex-col items-center text-center relative z-10">
+<div class="relative mb-4 group">
+<div id="user-avatar" class="bg-center bg-no-repeat bg-cover rounded-full size-32 border-4 border-primary shadow-lg cursor-pointer" data-alt="User avatar"></div>
+<div class="absolute bottom-0 right-0 bg-surface-dark rounded-full p-1 border border-[#393628]">
+<span class="material-symbols-outlined text-primary text-2xl fill-1">verified</span>
+</div>
+<!-- زر تغيير الصورة -->
+<button onclick="document.getElementById('avatar-input').click()" class="absolute top-0 left-0 bg-primary hover:bg-accent-gold rounded-full p-2 border-2 border-surface-dark opacity-0 group-hover:opacity-100 transition-all shadow-lg transform hover:scale-110" title="تغيير الصورة">
+<span class="material-symbols-outlined text-[#181711] text-lg">photo_camera</span>
+</button>
+<input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="handleAvatarUpload(event)">
+</div>
+<h3 class="text-white text-2xl font-bold mb-1" id="user-name-display">-</h3>
+<p class="text-primary text-sm font-bold tracking-wide mb-4" id="user-rank-display">-</p>
+<div class="flex items-center gap-2 bg-[#2d2a1e] px-4 py-2 rounded-full border border-primary/20 mb-6" id="championships-container">
+<span class="material-symbols-outlined text-primary text-lg">trophy</span>
+<span class="text-[#e2e0d6] text-sm font-medium" id="championships-text">-</span>
+</div>
+<div class="w-full border-t border-[#393628] pt-6 flex justify-between px-4">
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1 mb-1">
+<span class="text-[#b9b49d] text-xs">الرتبة العالمية</span>
+<button onclick="refreshProfileData()" class="text-[#b9b49d] hover:text-primary transition-colors" title="تحديث">
+<span class="material-symbols-outlined text-sm">refresh</span>
+</button>
+</div>
+<span class="text-white font-numbers font-bold text-lg">-</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1 mb-1">
+<span class="text-[#b9b49d] text-xs">جيش الإحتياط</span>
+<button onclick="refreshProfileData()" class="text-[#b9b49d] hover:text-primary transition-colors" title="تحديث">
+<span class="material-symbols-outlined text-sm">refresh</span>
+</button>
+</div>
+<span id="reserve-army-display" class="text-white font-numbers font-bold text-lg">0</span>
+</div>
+</div>
+</div>
+</div>
+<!-- قسم الأصدقاء -->
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-6">
+<div class="flex items-center justify-between mb-4">
+<h4 class="text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">group</span>
+قائمة الأصدقاء
+                    </h4>
+<span id="friends-count-badge" class="bg-surface-darker text-primary border border-primary/20 text-xs font-bold px-2 py-1 rounded">0 صديق</span>
+</div>
+<style>
+    /* سكرول أنيق لقائمة الأصدقاء */
+    #accepted-friends-list {
+        max-height: 320px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #eecd2b #23221b;
+        transition: box-shadow 0.2s;
+        box-shadow: 0 2px 8px 0 #0002;
+        border-radius: 0.75rem;
+    }
+    #accepted-friends-list::-webkit-scrollbar {
+        width: 8px;
+        background: #23221b;
+        border-radius: 8px;
+    }
+    #accepted-friends-list::-webkit-scrollbar-thumb {
+        background: #eecd2b;
+        border-radius: 8px;
+        min-height: 40px;
+    }
+</style>
+<div id="accepted-friends-list" class="flex flex-col gap-4">
+<p class="text-[#b9b49d] text-sm text-center py-6">لا توجد أصدقاء حالياً</p>
+</div>
+<div class="flex gap-2 mt-2">
+<button onclick="openAddFriendModal()" class="flex-1 py-2.5 text-xs font-bold text-primary border border-primary hover:bg-primary hover:text-black bg-transparent transition-colors rounded-lg flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">person_add</span>
+<span>اضافة صديق</span>
+</button>
+<button onclick="openGroupChatModal()" class="flex-1 py-2.5 text-xs font-bold text-primary border border-primary hover:bg-primary hover:text-black bg-transparent transition-colors rounded-lg flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">groups</span>
+<span>محادثة جماعية</span>
+</button>
+</div>
+</div>
+<!-- قسم دعوات الصداقة -->
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-6">
+<div class="flex items-center justify-between mb-4">
+<h4 class="text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">groups</span>
+المحادثات الجماعية
+                    </h4>
+<span id="groups-count-badge" class="bg-surface-darker text-primary border border-primary/20 text-xs font-bold px-2 py-1 rounded">0 مجموعة</span>
+</div>
+<style>
+    /* سكرول أنيق لحقل المحادثات الجماعية */
+    #group-chats-list {
+        max-height: 320px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #eecd2b #23221b;
+        transition: box-shadow 0.2s;
+        box-shadow: 0 2px 8px 0 #0002;
+        border-radius: 0.75rem;
+    }
+    #group-chats-list::-webkit-scrollbar {
+        width: 8px;
+        background: #23221b;
+        border-radius: 8px;
+    }
+    #group-chats-list::-webkit-scrollbar-thumb {
+        background: #eecd2b;
+        border-radius: 8px;
+        min-height: 40px;
+    }
+</style>
+<div id="group-chats-list" class="flex flex-col gap-4">
+<p class="text-[#b9b49d] text-sm text-center py-6">لا توجد مجموعات حالياً</p>
+</div>
+</div>
+<!-- قسم دعوات الصداقة -->
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-6">
+<div class="flex items-center justify-between mb-4">
+<h4 class="text-white text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">mail</span>
+طلبات الصداقة
+</h4>
+<div class="flex items-center gap-2">
+<button onclick="clearAllFriendsData()" class="hidden text-xs font-bold text-red-500 hover:text-red-400 border border-red-500 hover:border-red-400 px-2 py-1 rounded transition-colors">
+مسح الكل
+</button>
+<span class="bg-surface-darker text-primary border border-primary/20 text-xs font-bold px-2 py-1 rounded" id="friend-requests-count">0</span>
+</div>
+</div>
+<div id="friend-requests-list" class="flex flex-col gap-3">
+<p class="text-[#b9b49d] text-sm text-center py-6">لا توجد طلبات صداقة</p>
+</div>
+</div>
+</div>
+<div class="lg:col-span-8 flex flex-col gap-6">
+<div class="bg-surface-dark border border-[#393628] rounded-xl flex flex-col">
+<div class="p-6 border-b border-[#393628] flex justify-between items-center flex-wrap gap-4">
+<h3 class="text-white text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">swords</span>
+                        المعارك الجارية والمنتظرة
+                    </h3>
+<button class="text-[#b9b49d] hover:text-primary text-sm font-bold transition-colors flex items-center gap-1 group">
+<span>تحديث</span>
+<span class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform">refresh</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-right border-collapse">
+<thead class="bg-surface-darker text-[#b9b49d] text-xs font-medium uppercase tracking-wider">
+<tr>
+<th class="px-6 py-4 rounded-tr-lg">اسم الغرفة</th>
+<th class="px-6 py-4">اسم المضيف</th>
+<th class="px-6 py-4">عدد اللاعبين</th>
+<th class="px-6 py-4 rounded-tl-lg text-left pl-8">الإجراءات</th>
+</tr>
+</thead>
+<tbody id="games-list" class="divide-y divide-[#393628] text-sm">
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-[#393628] flex items-center justify-center">
+<button class="text-[#b9b49d] hover:text-white text-xs font-bold transition-colors flex items-center gap-1">
+<span>عرض كل الغرف المتاحة</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+</div>
+</div>
+
+
+<style>
+    /* سكرول أنيق لملخص الأداء وإحصائيات المعارك التفصيلية */
+    .performance-scroll, .battle-stats-scroll {
+        max-height: 520px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #eecd2b #23221b;
+        transition: box-shadow 0.2s;
+        box-shadow: 0 2px 8px 0 #0002;
+        border-radius: 0.75rem;
+    }
+    .performance-scroll::-webkit-scrollbar, .battle-stats-scroll::-webkit-scrollbar {
+        width: 8px;
+        background: #23221b;
+        border-radius: 8px;
+    }
+    .performance-scroll::-webkit-scrollbar-thumb, .battle-stats-scroll::-webkit-scrollbar-thumb {
+        background: #eecd2b;
+        border-radius: 8px;
+        min-height: 40px;
+    }
+</style>
+<!-- ملخص الأداء -->
+<div class="bg-surface-dark border border-[#393628] rounded-xl overflow-hidden performance-scroll">
+<div class="p-6 border-b border-[#393628] flex items-center justify-between">
+<h3 class="text-white text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">analytics</span>
+ملخص الأداء
+</h3>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full border-collapse">
+<thead class="bg-surface-darker">
+<tr>
+<th class="text-right px-6 py-4 text-[#b9b49d] text-sm font-medium uppercase border-r border-[#393628]">المؤشر</th>
+<th class="text-center px-6 py-4 text-[#b9b49d] text-sm font-medium uppercase border-r border-[#393628]">المباريات</th>
+<th class="text-center px-6 py-4 text-[#b9b49d] text-sm font-medium uppercase border-r border-[#393628]">الانتصارات</th>
+<th class="text-center px-6 py-4 text-[#b9b49d] text-sm font-medium uppercase border-r border-[#393628]">الخسائر</th>
+<th class="text-center px-6 py-4 text-[#b9b49d] text-sm font-medium uppercase border-r border-[#393628]">معدل الفوز</th>
+<th class="text-center px-6 py-4 text-[#b9b49d] text-sm font-medium uppercase">آخر تحديث</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#393628]">
+<tr class="hover:bg-surface-darker/50 transition-colors">
+<td class="px-6 py-4 text-white font-bold border-r border-[#393628]">البيانات الكلية</td>
+<td class="px-6 py-4 text-center text-white text-lg font-bold border-r border-[#393628]"><span id="total-games-summary">0</span></td>
+<td class="px-6 py-4 text-center text-green-400 text-lg font-bold border-r border-[#393628]"><span id="total-wins-summary">0</span></td>
+<td class="px-6 py-4 text-center text-red-400 text-lg font-bold border-r border-[#393628]"><span id="total-losses-summary">0</span></td>
+<td class="px-6 py-4 text-center text-primary text-lg font-bold border-r border-[#393628]"><span id="win-rate-summary">0%</span></td>
+<td class="px-6 py-4 text-center text-[#b9b49d] text-sm"><span id="last-update-summary">منذ قليل</span></td>
+</tr>
+<tr class="bg-surface-darker/30 hover:bg-surface-darker/50 transition-colors">
+<td class="px-6 py-4 text-[#b9b49d] font-medium border-r border-[#393628]">اليومية</td>
+<td class="px-6 py-4 text-center text-white text-lg font-bold border-r border-[#393628]"><span id="daily-games">0</span></td>
+<td class="px-6 py-4 text-center text-green-400 text-lg font-bold border-r border-[#393628]"><span id="daily-wins">0</span></td>
+<td class="px-6 py-4 text-center text-red-400 text-lg font-bold border-r border-[#393628]"><span id="daily-losses">0</span></td>
+<td class="px-6 py-4 text-center text-primary text-lg font-bold border-r border-[#393628]"><span id="daily-rate">0%</span></td>
+<td class="px-6 py-4 text-center text-[#b9b49d] text-sm">اليوم</td>
+</tr>
+<tr class="bg-surface-darker/30 hover:bg-surface-darker/50 transition-colors">
+<td class="px-6 py-4 text-[#b9b49d] font-medium border-r border-[#393628]">آخر 7 أيام</td>
+<td class="px-6 py-4 text-center text-white text-lg font-bold border-r border-[#393628]"><span id="weekly-games">0</span></td>
+<td class="px-6 py-4 text-center text-green-400 text-lg font-bold border-r border-[#393628]"><span id="weekly-wins">0</span></td>
+<td class="px-6 py-4 text-center text-red-400 text-lg font-bold border-r border-[#393628]"><span id="weekly-losses">0</span></td>
+<td class="px-6 py-4 text-center text-primary text-lg font-bold border-r border-[#393628]"><span id="weekly-rate">0%</span></td>
+<td class="px-6 py-4 text-center text-[#b9b49d] text-sm">آخر 7 أيام</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<!-- 📊 قسم الإحصائيات المفصلة -->
+<div class="bg-surface-dark border border-[#393628] rounded-xl">
+<div class="p-6 border-b border-[#393628] flex items-center justify-between">
+<h3 class="text-white text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">bar_chart</span>
+إحصائيات المعارك التفصيلية
+</h3>
+<button onclick="loadPlayerStatistics()" class="text-[#b9b49d] hover:text-primary text-sm font-bold transition-colors flex items-center gap-1 group">
+<span>تحديث</span>
+<span class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform">refresh</span>
+</button>
+</div>
+
+<!-- الإحصائيات الإجمالية - خارج الإسكرول -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 p-6 bg-surface-darker/30">
+<div class="flex flex-col items-center p-4 bg-surface-dark rounded-lg border border-[#393628]">
+<span class="text-[#b9b49d] text-xs mb-2">إجمالي المباريات</span>
+<span id="stats-total-games" class="text-white font-numbers font-bold text-2xl">0</span>
+</div>
+<div class="flex flex-col items-center p-4 bg-surface-dark rounded-lg border border-[#393628]">
+<span class="text-[#b9b49d] text-xs mb-2">انتصارات</span>
+<span id="stats-total-wins" class="text-green-400 font-numbers font-bold text-2xl">0</span>
+</div>
+<div class="flex flex-col items-center p-4 bg-surface-dark rounded-lg border border-[#393628]">
+<span class="text-[#b9b49d] text-xs mb-2">خسائر</span>
+<span id="stats-total-losses" class="text-red-400 font-numbers font-bold text-2xl">0</span>
+</div>
+<div class="flex flex-col items-center p-4 bg-surface-dark rounded-lg border border-[#393628]">
+<span class="text-[#b9b49d] text-xs mb-2">تعادل</span>
+<span id="stats-total-draws" class="text-yellow-400 font-numbers font-bold text-2xl">0</span>
+</div>
+<div class="flex flex-col items-center p-4 bg-surface-dark rounded-lg border border-[#393628]">
+<span class="text-[#b9b49d] text-xs mb-2">إجمالي القتلى</span>
+<span id="stats-total-kills" class="text-primary font-numbers font-bold text-2xl">0</span>
+</div>
+<div class="flex flex-col items-center p-4 bg-surface-dark rounded-lg border border-[#393628]">
+<span class="text-[#b9b49d] text-xs mb-2">إجمالي الحركات</span>
+<span id="stats-total-moves" class="text-blue-400 font-numbers font-bold text-2xl">0</span>
+</div>
+</div>
+
+<!-- قسم الإسكرول يبدأ من الجدول -->
+<div class="overflow-y-auto battle-stats-scroll">
+
+<!-- جدول المباريات التفصيلي -->
+<div class="overflow-x-auto">
+<table class="w-full border-collapse">
+<thead class="bg-surface-darker">
+<tr>
+<th class="text-right px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">المعركة</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">الخصم</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">النتيجة</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">قتلى</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">حركات</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">مدة</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">التاريخ</th>
+</tr>
+</thead>
+<tbody id="stats-table-body" class="divide-y divide-[#393628] text-sm">
+<tr>
+<td colspan="7" class="px-6 py-8 text-center text-[#b9b49d]">
+<div class="flex flex-col items-center gap-2">
+<span class="material-symbols-outlined text-4xl text-primary/30">query_stats</span>
+<p>لا توجد إحصائيات متاحة حالياً</p>
+<p class="text-xs">ابدأ بلعب المزيد من المعارك!</p>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- نهاية قسم الإسكرول -->
+</div>
+
+<!-- 🏆 قسم البطولات القادمة -->
+<div class="bg-surface-dark border border-[#393628] rounded-xl mt-6">
+<div class="p-6 border-b border-[#393628] flex items-center justify-between">
+<h3 class="text-white text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">emoji_events</span>
+بطولات قادمة
+</h3>
+<button onclick="loadUpcomingTournaments()" class="text-[#b9b49d] hover:text-primary text-sm font-bold transition-colors flex items-center gap-1 group">
+<span>تحديث</span>
+<span class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform">refresh</span>
+</button>
+</div>
+
+<!-- قسم الإسكرول للبطولات -->
+<div class="overflow-y-auto battle-stats-scroll">
+
+<!-- جدول البطولات -->
+<div class="overflow-x-auto">
+<table class="w-full border-collapse">
+<thead class="bg-surface-darker">
+<tr>
+<th class="text-right px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">اسم البطولة</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">التاريخ</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">عدد المشاركين</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">الجائزة الأولى</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase">الحالة</th>
+<th class="text-center px-4 py-3 text-[#b9b49d] text-xs font-medium uppercase text-left pl-8">الإجراءات</th>
+</tr>
+</thead>
+<tbody id="tournaments-table-body" class="divide-y divide-[#393628] text-sm">
+<tr>
+<td colspan="6" class="px-6 py-8 text-center text-[#b9b49d]">
+<div class="flex flex-col items-center gap-2">
+<span class="material-symbols-outlined text-4xl text-primary/30">event_note</span>
+<p>لا توجد بطولات قادمة حالياً</p>
+<p class="text-xs">تابع القائمة للتعرف على البطولات الجديدة!</p>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- نهاية قسم الإسكرول للبطولات -->
+</div>
+
+
+</div>
+</div>
+<!-- Modal إعدادات المعركة -->
+<div id="game-settings-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] p-4 flex items-center justify-center">
+<div class="bg-surface-dark border border-[#393628] rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col shadow-[0_0_35px_rgba(0,0,0,0.45)]">
+<div class="flex items-center justify-between p-6 border-b border-[#393628] bg-surface-darker sticky top-0">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl">settings</span>
+<div>
+<p class="text-white text-2xl font-bold">إعدادات المعركة</p>
+<p class="text-[#b9b49d] text-sm">تفاصيل الخريطة والوقت واللاعبين</p>
+</div>
+</div>
+<button type="button" onclick="closeGameSettingsModal()" class="text-[#b9b49d] hover:text-white transition-colors">
+<span class="material-symbols-outlined text-3xl">close</span>
+</button>
+</div>
+
+<div class="p-6 space-y-6 overflow-y-auto">
+<div>
+<p class="text-primary text-base font-bold mb-3">معاينة الخريطة</p>
+<div class="bg-surface-darker border border-[#393628] rounded-xl h-56 flex items-center justify-center overflow-hidden">
+<div id="modal-map-preview" class="w-full h-full flex items-center justify-center overflow-hidden">
+<div id="modal-map-placeholder" class="flex flex-col items-center justify-center text-[#b9b49d] gap-2 text-sm">
+<span class="material-symbols-outlined text-3xl text-[#766f55]">image_not_supported</span>
+<p>لا توجد معاينة متاحة لهذه الخريطة</p>
+</div>
+</div>
+</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="bg-surface-darker border border-[#393628] rounded-xl p-4">
+<p class="text-[#b9b49d] text-xs mb-1">اسم المعركة</p>
+<p id="modal-game-name" class="text-white text-lg font-bold">-</p>
+</div>
+<div class="bg-surface-darker border border-[#393628] rounded-xl p-4">
+<p class="text-[#b9b49d] text-xs mb-1">اسم الخريطة</p>
+<p id="modal-map-name" class="text-white text-lg font-bold">-</p>
+</div>
+<div class="bg-surface-darker border border-[#393628] rounded-xl p-4">
+<p class="text-[#b9b49d] text-xs mb-1">طبيعة المعركة</p>
+<p id="modal-game-nature" class="text-white text-lg font-bold">-</p>
+</div>
+<div class="bg-surface-darker border border-[#393628] rounded-xl p-4">
+<p class="text-[#b9b49d] text-xs mb-1">لون الضيف</p>
+<p id="modal-guest-color" class="text-white text-lg font-bold">-</p>
+</div>
+<div class="bg-surface-darker border border-[#393628] rounded-xl p-4">
+    <p class="text-[#b9b49d] text-xs mb-1">زمن المباراة</p>
+    <p id="modal-match-time" class="text-white text-lg font-bold">-</p>
+</div>
+<div class="bg-surface-darker border border-[#393628] rounded-xl p-4">
+    <p class="text-[#b9b49d] text-xs mb-1">زمن توزيع الجيش (دقيقة)</p>
+    <p id="modal-army-time" class="text-white text-lg font-bold">-</p>
+</div>
+<div class="bg-surface-darker border border-[#393628] rounded-xl p-4">
+    <p class="text-[#b9b49d] text-xs mb-1">زمن الدور (ثانية)</p>
+    <p id="modal-turn-time" class="text-white text-lg font-bold">-</p>
+</div>
+<div class="bg-surface-darker border border-[#393628] rounded-xl p-4 md:col-span-2">
+<p class="text-[#b9b49d] text-xs mb-1">المضيف</p>
+<div class="flex items-center gap-3 mt-2">
+<div id="modal-host-avatar" class="size-12 rounded-full bg-[#393628] bg-cover bg-center border-2 border-primary overflow-hidden flex items-center justify-center">
+<span class="material-symbols-outlined text-[#b9b49d] text-2xl">person</span>
+</div>
+<p id="modal-host-name" class="text-white text-lg font-bold">-</p>
+</div>
+</div>
+</div>
+</div>
+
+<div class="p-6 border-t border-[#393628] bg-surface-darker flex flex-col sm:flex-row gap-3">
+<button type="button" onclick="closeGameSettingsModal()" class="flex-1 py-3 rounded-lg border border-[#393628] text-white hover:text-primary transition-colors font-bold">
+إغلاق
+</button>
+<button type="button" id="modal-primary-action" class="flex-1 py-3 rounded-lg bg-primary hover:bg-accent-gold text-[#181711] font-bold transition-colors">
+انضم للمعركة
+</button>
+</div>
+</div>
+</div>
+<!-- نافذة إضافة صديق -->
+<div id="add-friend-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-white text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">person_add</span>
+اضافة صديق
+</h3>
+<button onclick="closeFriendModal()" class="text-[#b9b49d] hover:text-white">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+
+<div id="users-list" class="space-y-2 mb-4">
+<p class="text-[#b9b49d] text-sm text-center py-4">جاري تحميل قائمة المستخدمين...</p>
+</div>
+
+<div class="border-t border-[#393628] pt-4 flex gap-2">
+<button onclick="closeFriendModal()" class="flex-1 py-2 px-4 bg-surface-darker border border-[#393628] text-[#b9b49d] hover:text-white rounded-lg transition-colors text-sm font-bold">
+إلغاء
+</button>
+<button onclick="addFromFacebook()" class="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-bold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">facebook</span>
+فيس بوك
+</button>
+</div>
+</div>
+</div>
+
+<!-- نافذة إرسال قوات -->
+<div id="send-troops-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-6 w-full max-w-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-white text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-green-400">military_tech</span>
+<span>إرسال قوات للصديق</span>
+</h3>
+<button onclick="closeSendTroopsModal()" class="text-[#b9b49d] hover:text-white">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<p id="send-troops-friend-name" class="text-primary text-base font-bold mb-4 text-center"></p>
+<div class="mb-2">
+<label class="text-[#b9b49d] text-sm block mb-2">عدد الجنود</label>
+<input id="send-troops-amount" type="number" min="1" placeholder="أدخل عدد الجنود..." class="w-full bg-surface-darker border border-[#393628] rounded-lg px-3 py-2 text-white placeholder-[#b9b49d] focus:outline-none focus:border-primary text-center text-lg font-bold">
+</div>
+<p id="send-troops-balance" class="text-[#b9b49d] text-xs text-center mb-4">رصيدك: <span id="send-troops-current">0</span> جندي</p>
+<p id="send-troops-error" class="text-red-400 text-sm text-center mb-2 hidden"></p>
+<div class="flex gap-2">
+<button onclick="closeSendTroopsModal()" class="flex-1 py-2.5 px-4 bg-surface-darker border border-[#393628] text-[#b9b49d] hover:text-white rounded-lg transition-colors text-sm font-bold">
+إلغاء
+</button>
+<button onclick="confirmSendTroops()" class="flex-1 py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-bold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">send</span>
+أرسل
+</button>
+</div>
+</div>
+</div>
+
+<!-- نافذة إنشاء محادثة جماعية -->
+<div id="group-chat-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-white text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">groups</span>
+إنشاء محادثة جماعية
+</h3>
+<button onclick="closeGroupChatModal()" class="text-[#b9b49d] hover:text-white">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+
+<!-- اسم المجموعة -->
+<div class="mb-4">
+<label class="text-[#b9b49d] text-sm block mb-2">اسم المجموعة</label>
+<input 
+    id="group-name-input" 
+    type="text" 
+    placeholder="أدخل اسم المجموعة..." 
+    class="w-full bg-surface-darker border border-[#393628] rounded-lg px-3 py-2 text-white placeholder-[#b9b49d] focus:outline-none focus:border-primary"
+>
+</div>
+
+<!-- اختيار الأصدقاء -->
+<div class="mb-4">
+<label class="text-[#b9b49d] text-sm block mb-2">اختر الأصدقاء (متعدد الاختيار)</label>
+<div id="group-friends-list" class="space-y-2 border border-[#393628] rounded-lg p-3 max-h-64 overflow-y-auto bg-surface-darker">
+<p class="text-[#b9b49d] text-sm text-center py-4">جاري تحميل قائمة الأصدقاء...</p>
+</div>
+</div>
+
+<!-- الأزرار -->
+<div class="border-t border-[#393628] pt-4 flex gap-2">
+<button onclick="closeGroupChatModal()" class="flex-1 py-2 px-4 bg-surface-darker border border-[#393628] text-[#b9b49d] hover:text-white rounded-lg transition-colors text-sm font-bold">
+إلغاء
+</button>
+<button onclick="createGroupChat()" class="flex-1 py-2 px-4 bg-primary hover:bg-accent-gold text-[#181711] rounded-lg transition-colors text-sm font-bold">
+إنشاء
+</button>
+</div>
+</div>
+</main>
+<script src="zoom.js"></script>
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        initializeZoom('main');
+    });
+</script>
+<script>
+// تحميل المعارك المتاحة من قاعدة البيانات
+const gamesCache = {};
+const mapsCache = {
+    list: null,
+    data: {}
+};
+
+async function loadAvailableGames() {
+    try {
+        const currentUserId = localStorage.getItem('userId');
+        const res = await fetch(`${API_URL}/games/available?user_id=${encodeURIComponent(currentUserId || '')}`);
+        const result = await res.json();
+        
+        console.log('المعارك المحملة:', result);
+        
+        const gamesList = document.getElementById('games-list');
+        const resolveId = (...values) => {
+            for (const value of values) {
+                const parsed = parseInt(value, 10);
+                if (parsed > 0) return parsed;
+            }
+            return null;
+        };
+        
+        if (result.success && result.games && result.games.length > 0) {
+            gamesList.innerHTML = '';
+            console.log('عدد المعارك:', result.games.length);
+
+            result.games.forEach(game => {
+                gamesCache[game.id] = game;
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-[#2d2a1e] transition-colors group';
+
+                const playersCount = game.opponent_id ? 2 : 1;
+                const currentUserIdNum = parseInt(currentUserId, 10);
+                const gameHostIdNum = parseInt(game.host_id, 10);
+                const gameOpponentIdNum = game.opponent_id ? parseInt(game.opponent_id, 10) : null;
+
+                let parsedSettings = {};
+                try {
+                    parsedSettings = typeof game.game_settings === 'string'
+                        ? JSON.parse(game.game_settings)
+                        : (game.game_settings || {});
+                } catch (e) {
+                    parsedSettings = {};
+                }
+
+                const configuredPlayer1Id = resolveId(parsedSettings.player1Id, parsedSettings.player1_id, parsedSettings.hostPlayerId);
+                const configuredPlayer2Id = resolveId(parsedSettings.player2Id, parsedSettings.player2_id, parsedSettings.guestPlayerId);
+                const tournamentAdminId = resolveId(
+                    parsedSettings.tournamentAdminId,
+                    parsedSettings.roomCreatorId,
+                    parsedSettings.adminId,
+                    parsedSettings.tournament_creator_id
+                );
+                const isTournamentMatch = Boolean(
+                    parsedSettings.tournamentCreated ||
+                    parsedSettings.isTournamentMatch ||
+                    tournamentAdminId ||
+                    (configuredPlayer1Id && configuredPlayer2Id)
+                );
+
+                const hasTournamentVisibilityControls = Boolean(
+                    configuredPlayer1Id || configuredPlayer2Id
+                );
+
+                if (isTournamentMatch && hasTournamentVisibilityControls) {
+                    const allowedViewerIds = new Set(
+                        [configuredPlayer1Id, configuredPlayer2Id, tournamentAdminId]
+                            .filter(Boolean)
+                    );
+
+                    if (!allowedViewerIds.has(currentUserIdNum)) {
+                        console.log('⛔ إخفاء مباراة بطولة عن مستخدم غير مصرح:', {
+                            gameId: game.id,
+                            currentUserIdNum,
+                            configuredPlayer1Id,
+                            configuredPlayer2Id,
+                            tournamentAdminId
+                        });
+                        return;
+                    }
+                }
+
+                // في مباريات البطولة قد يبقى host_id للمدير مؤقتاً، لذا نعرض المضيف الحقيقي من player1
+                const effectiveHostId = (isTournamentMatch && configuredPlayer1Id)
+                    ? configuredPlayer1Id
+                    : gameHostIdNum;
+                const isHost = currentUserIdNum === effectiveHostId;
+
+                const displayHostName = (isTournamentMatch && parsedSettings.player1Name)
+                    ? parsedSettings.player1Name
+                    : (game.host_name || 'مجهول');
+
+                const participantIds = [gameHostIdNum, gameOpponentIdNum].filter(Boolean);
+                const player2Entered = (isTournamentMatch && configuredPlayer2Id)
+                    ? participantIds.includes(configuredPlayer2Id)
+                    : Boolean(gameOpponentIdNum);
+                const isCurrentGuest = (isTournamentMatch && configuredPlayer2Id)
+                    ? currentUserIdNum === configuredPlayer2Id
+                    : gameOpponentIdNum === currentUserIdNum;
+
+                console.log('🏁 عرض المعركة في الملف الشخصي:', {
+                    gameId: game.id,
+                    isTournamentMatch,
+                    gameHostIdNum,
+                    gameOpponentIdNum,
+                    configuredPlayer1Id,
+                    configuredPlayer2Id,
+                    effectiveHostId,
+                    displayHostName,
+                    player2Entered
+                });
+
+
+                // استخراج زمن المباراة من الإعدادات بنفس منطق صفحة إنشاء مباراة
+                let matchTimeText = '-';
+                const settings = parsedSettings;
+                if (settings.matchTimer === 'unlimited' || settings.matchTimer === undefined) {
+                    matchTimeText = 'مباراة حرة (غير محدودة الزمن)';
+                } else if (settings.matchTimer === 'timed') {
+                    if (settings.matchTimeMinutes && !isNaN(settings.matchTimeMinutes)) {
+                        matchTimeText = `مباراة بزمن: ${settings.matchTimeMinutes} دقيقة`;
+                    } else {
+                        matchTimeText = 'مباراة بزمن: غير محدد';
+                    }
+                }
+
+                const settingsButtonHTML = `
+                    <button class="size-8 rounded-lg border border-[#393628] text-[#b9b49d] hover:text-primary hover:border-primary transition-colors flex items-center justify-center" title="عرض إعدادات المعركة" onclick="openGameSettingsModal(${game.id})">
+                        <span class="material-symbols-outlined text-lg">settings</span>
+                    </button>
+                `;
+
+                let primaryActionHTML = '';
+                if (isTournamentMatch) {
+                    // في مباريات البطولة: زر ثابت دائماً "انضمام"
+                    primaryActionHTML = `<button class="bg-primary hover:bg-accent-gold text-[#181711] px-4 py-1.5 rounded text-xs font-bold transition-colors shadow-[0_0_10px_rgba(238,206,43,0.2)]" onclick="joinTournamentGame(${game.id})">
+                        انضمام
+                    </button>`;
+                } else if (!isHost && !player2Entered) {
+                    // الضيف - إذا لم يكن هناك ضيف بعد
+                    const buttonText = 'انضمام';
+                    const buttonAction = `joinGame(${game.id})`;
+                    primaryActionHTML = `<button class="bg-primary hover:bg-accent-gold text-[#181711] px-4 py-1.5 rounded text-xs font-bold transition-colors shadow-[0_0_10px_rgba(238,206,43,0.2)]" onclick="${buttonAction}">
+                        ${buttonText}
+                    </button>`;
+                } else if (isHost) {
+                    // المضيف - اعرض رسالة أو زر إدارة
+                    primaryActionHTML = `<span class="text-[#b9b49d] text-xs">أنت المضيف</span>`;
+                } else if (isCurrentGuest) {
+                    // الضيف الحالي
+                    primaryActionHTML = `<span class="text-primary text-xs font-bold">قيد المشاركة</span>`;
+                }
+                const actionsHTML = `
+                    <div class="flex items-center gap-2 justify-end">
+                        ${settingsButtonHTML}
+                        ${primaryActionHTML}
+                    </div>
+                `;
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex flex-col">
+                            <span class="text-white font-bold">${game.game_name || 'بدون اسم'}</span>
+                            <span class="text-[#b9b49d] text-xs">خريطة: ${game.map_name || 'غير محددة'}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[#e2e0d6] font-medium">${displayHostName}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap font-numbers text-[#b9b49d]">
+                        <span class="text-white font-bold">${playersCount}</span> / ٢
+                        <span class="block text-xs mt-1 text-[#b9b49d]" title="زمن المباراة من صفحة الإنشاء">${matchTimeText}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-left">
+                        ${actionsHTML}
+                    </td>
+                `;
+                gamesList.appendChild(row);
+            });
+
+            if (!gamesList.children.length) {
+                gamesList.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-8 text-center text-[#b9b49d]">
+                            لا توجد معارك متاحة حالياً
+                        </td>
+                    </tr>
+                `;
+            }
+        } else {
+            gamesList.innerHTML = `
+                <tr>
+                    <td colspan="4" class="px-6 py-8 text-center text-[#b9b49d]">
+                        لا توجد معارك متاحة حالياً
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل المعارك:', error);
+        const gamesList = document.getElementById('games-list');
+        gamesList.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-6 py-8 text-center text-red-400">
+                    خطأ في تحميل المعارك
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// تحميل المعارك عند فتح الصفحة
+window.addEventListener('DOMContentLoaded', function() {
+    // تنظيف المعارك المحذوفة أولاً
+    cleanupDeletedGames();
+    
+    // تحميل المعارك المتاحة
+    loadAvailableGames();
+    
+    // تحديث المعارك كل 3 ثوان (لاكتشاف الألعاب المحذوفة بسرعة)
+    setInterval(loadAvailableGames, 3000);
+});
+
+// دالة للانضمام إلى معركة
+async function joinGame(gameId) {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+        alert('يرجى تسجيل الدخول أولاً');
+        window.location.href = 'تسجيل دخول.html';
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_URL}/games/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: gameId, user_id: userId })
+        });
+        
+        const result = await res.json();
+        if (result.success) {
+            // حفظ معرف المباراة في localStorage
+            localStorage.setItem('gameId', gameId);
+            // الانتقال إلى صفحة غرفة الانتظار
+            window.location.href = 'غرفة الانتظار.html';
+        } else {
+            alert('فشل الانضمام: ' + result.message);
+        }
+    } catch (error) {
+        alert('خطأ في الانضمام: ' + error.message);
+    }
+}
+
+// دالة للدخول إلى معركة (للمضيف)
+async function enterGame(gameId) {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+        alert('يرجى تسجيل الدخول أولاً');
+        window.location.href = 'تسجيل دخول.html';
+        return;
+    }
+    
+    try {
+        // حفظ معرف المباراة في localStorage
+        localStorage.setItem('gameId', gameId);
+        // الذهاب مباشرة إلى غرفة الانتظار
+        window.location.href = 'غرفة الانتظار.html';
+    } catch (error) {
+        alert('خطأ في الدخول: ' + error.message);
+    }
+}
+
+// في مباريات البطولة: نفّذ join إذا لم يكن المستخدم مشاركاً بعد، ثم ادخل غرفة الانتظار
+async function joinTournamentGame(gameId) {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+        alert('يرجى تسجيل الدخول أولاً');
+        window.location.href = 'تسجيل دخول.html';
+        return;
+    }
+
+    try {
+        const gameRes = await fetch(`${API_URL}/games/${gameId}`);
+        if (!gameRes.ok) {
+            alert('تعذر جلب بيانات المعركة');
+            return;
+        }
+
+        const gamePayload = await gameRes.json();
+        const game = gamePayload?.game;
+        if (!gamePayload.success || !game) {
+            alert('تعذر قراءة بيانات المعركة');
+            return;
+        }
+
+        const currentUserId = parseInt(userId, 10);
+        const hostId = parseInt(game.host_id, 10) || null;
+        const opponentId = game.opponent_id ? parseInt(game.opponent_id, 10) : null;
+        const isAlreadyParticipant = currentUserId === hostId || currentUserId === opponentId;
+
+        if (!isAlreadyParticipant) {
+            const joinRes = await fetch(`${API_URL}/games/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ game_id: gameId, user_id: userId })
+            });
+
+            const joinResult = await joinRes.json();
+            if (!joinResult.success) {
+                alert('فشل الانضمام: ' + (joinResult.message || 'تعذر الانضمام للمعركة'));
+                return;
+            }
+        }
+
+        localStorage.setItem('gameId', gameId);
+        window.location.href = 'غرفة الانتظار.html';
+    } catch (error) {
+        alert('خطأ في الانضمام: ' + error.message);
+    }
+}
+
+function openGameSettingsModal(gameId) {
+    const modal = document.getElementById('game-settings-modal');
+    if (!modal) return;
+    const gameData = gamesCache[gameId];
+    if (!gameData) {
+        alert('تعذر العثور على بيانات هذه المعركة.');
+        return;
+    }
+
+    const settings = parseGameSettings(gameData.game_settings);
+    const getValue = (value, fallback = '-') => {
+        if (value === undefined || value === null || value === '') return fallback;
+        return value;
+    };
+
+    const resolvedGameName = firstAvailableValue(gameData.game_name, settings.roomName);
+    const resolvedMapName = firstAvailableValue(settings.mapDisplayName, settings.mapName, gameData.map_name);
+    const resolvedNature = firstAvailableValue(settings.gameNature, gameData.game_nature, 'traditional');
+    const resolvedGuestColor = firstAvailableValue(settings.guestColor, gameData.guest_color);
+    const resolvedHostName = firstAvailableValue(gameData.host_name, settings.hostName);
+    const armyDistributionMinutes = firstAvailableNumber(
+        settings.armyDistributionTime,
+        settings.army_distribution_time,
+        settings.armyTime,
+        gameData.army_distribution_time,
+        gameData.army_time,
+        localStorage.getItem('armyDistributionTime')
+    );
+    const turnTimeSeconds = firstAvailableNumber(
+        settings.turnTimeSeconds,
+        settings.turnTime,
+        settings.turnDuration,
+        settings.turn_time,
+        gameData.turn_time,
+        gameData.turn_time_seconds,
+        localStorage.getItem('turnTimeSeconds')
+    );
+
+    // استخراج زمن المباراة من مصدر موثوق (game.game_settings) مع معالجة جميع الحالات الطرفية
+    let matchTimeText = '-';
+    let matchTimer, matchTimeMinutes;
+
+    // استخدم gameData.game_settings مباشرة إذا كانت موجودة
+    let rawSettings = gameData && gameData.game_settings;
+    let parsedSettings = {};
+    if (rawSettings) {
+        try {
+            parsedSettings = typeof rawSettings === 'string' ? JSON.parse(rawSettings) : rawSettings;
+        } catch (e) {
+            parsedSettings = {};
+        }
+    }
+    // أولوية القيم: settings (من الدالة) ثم parsedSettings (من قاعدة البيانات)
+    matchTimer = settings.matchTimer ?? parsedSettings.matchTimer;
+    matchTimeMinutes = settings.matchTimeMinutes ?? parsedSettings.matchTimeMinutes;
+
+    // معالجة حالات القيم النصية أو الرقمية
+    if (typeof matchTimeMinutes === 'string') {
+        matchTimeMinutes = matchTimeMinutes.trim();
+        if (matchTimeMinutes !== '' && !isNaN(matchTimeMinutes)) {
+            matchTimeMinutes = Number(matchTimeMinutes);
+        } else {
+            matchTimeMinutes = undefined;
+        }
+    }
+
+    // منطق العرض النهائي (مطابق لصفحة الإنشاء)
+    if (matchTimer === 'unlimited' || matchTimer === undefined || matchTimer === null) {
+        matchTimeText = 'مباراة حرة (غير محدودة الزمن)';
+    } else if (matchTimer === 'timed') {
+        if (typeof matchTimeMinutes === 'number' && matchTimeMinutes > 0) {
+            matchTimeText = `مباراة بزمن: ${matchTimeMinutes} دقيقة`;
+        } else {
+            matchTimeText = 'مباراة بزمن: غير محدد';
+        }
+    } else {
+        matchTimeText = '-';
+    }
+
+    // تحديث حقل زمن المباراة في نافذة الإعدادات
+    const matchTimeEl = document.getElementById('modal-match-time');
+    if (matchTimeEl) matchTimeEl.textContent = matchTimeText;
+
+    const gameNatureEl = document.getElementById('modal-game-nature');
+    const guestColorEl = document.getElementById('modal-guest-color');
+    const hostNameEl = document.getElementById('modal-host-name');
+    const gameNameEl = document.getElementById('modal-game-name');
+    const mapNameEl = document.getElementById('modal-map-name');
+    const armyTimeEl = document.getElementById('modal-army-time');
+    const turnTimeEl = document.getElementById('modal-turn-time');
+
+    if (gameNameEl) gameNameEl.textContent = getValue(resolvedGameName, 'بدون اسم');
+    if (mapNameEl) mapNameEl.textContent = getValue(resolvedMapName, 'غير محددة');
+    if (gameNatureEl) gameNatureEl.textContent = formatGameNature(resolvedNature);
+    if (guestColorEl) guestColorEl.textContent = formatGuestColor(resolvedGuestColor);
+    if (hostNameEl) hostNameEl.textContent = getValue(resolvedHostName, 'غير معروف');
+    if (armyTimeEl) armyTimeEl.textContent = armyDistributionMinutes !== null ? armyDistributionMinutes : '-';
+    if (turnTimeEl) turnTimeEl.textContent = turnTimeSeconds !== null ? turnTimeSeconds : '-';
+
+    // تحديث صورة المضيف
+    const hostAvatarEl = document.getElementById('modal-host-avatar');
+    const hostAvatarUrl = gameData.avatar_url || gameData.host_avatar_url || '';
+    if (hostAvatarEl) {
+        if (hostAvatarUrl) {
+            hostAvatarEl.style.backgroundImage = `url(${hostAvatarUrl})`;
+            hostAvatarEl.innerHTML = '';
+        } else {
+            hostAvatarEl.style.backgroundImage = 'none';
+            hostAvatarEl.innerHTML = '<span class="material-symbols-outlined text-[#b9b49d] text-2xl">person</span>';
+        }
+    }
+
+    renderModalMapPreview(resolvedMapName);
+
+    const enrichedGameData = {
+        ...gameData,
+        map_name: resolvedMapName || gameData.map_name,
+        guest_color: resolvedGuestColor || gameData.guest_color
+    };
+    updateModalActionButton(enrichedGameData);
+
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeGameSettingsModal() {
+    const modal = document.getElementById('game-settings-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function updateModalActionButton(gameData) {
+    const actionButton = document.getElementById('modal-primary-action');
+    if (!actionButton) return;
+
+    const currentUserId = parseInt(localStorage.getItem('userId') || '0', 10);
+    const hostId = parseInt(gameData.host_id, 10);
+    const opponentId = gameData.opponent_id ? parseInt(gameData.opponent_id, 10) : null;
+
+    actionButton.dataset.gameId = gameData.id;
+    actionButton.disabled = false;
+    actionButton.classList.remove('opacity-60', 'cursor-not-allowed');
+
+    if (!opponentId && currentUserId !== hostId) {
+        actionButton.textContent = 'انضم للمعركة';
+        actionButton.dataset.action = 'join';
+    } else if (currentUserId === hostId) {
+        actionButton.textContent = 'إدارة المعركة';
+        actionButton.dataset.action = 'manage';
+    } else if (opponentId === currentUserId) {
+        actionButton.textContent = 'اذهب لغرفة الانتظار';
+        actionButton.dataset.action = 'manage';
+    } else {
+        actionButton.textContent = 'المعركة ممتلئة';
+        actionButton.dataset.action = 'disabled';
+        actionButton.disabled = true;
+        actionButton.classList.add('opacity-60', 'cursor-not-allowed');
+    }
+}
+
+function handleModalPrimaryAction(event) {
+    const button = event.currentTarget;
+    const gameId = button.dataset.gameId;
+    const action = button.dataset.action;
+    if (!gameId || !action || action === 'disabled') return;
+
+    const numericGameId = parseInt(gameId, 10);
+    closeGameSettingsModal();
+
+    if (action === 'join') {
+        joinGame(numericGameId);
+    } else if (action === 'manage') {
+        enterGame(numericGameId);
+    }
+}
+
+function formatGameNature(nature) {
+    if (!nature) return 'غير محددة';
+    const normalized = nature.toString().toLowerCase();
+    switch (normalized) {
+        case 'traditional':
+            return 'تقليدية';
+        case 'advanced':
+            return 'متقدمة';
+        case 'special':
+            return 'خاصة';
+        default:
+            return nature;
+    }
+}
+
+function formatGuestColor(color) {
+    if (!color) return 'غير محدد';
+    const normalized = color.toString().toLowerCase();
+    switch (normalized) {
+        case 'white':
+            return 'الأبيض';
+        case 'black':
+            return 'الأسود';
+        default:
+            return color;
+    }
+}
+
+function parseGameSettings(rawSettings) {
+    if (!rawSettings) return {};
+    if (typeof rawSettings === 'string') {
+        try {
+            return JSON.parse(rawSettings);
+        } catch (error) {
+            console.warn('تعذر تحليل إعدادات المعركة:', error);
+            return {};
+        }
+    }
+    return rawSettings;
+}
+
+function firstAvailableValue(...values) {
+    for (const value of values) {
+        if (value !== undefined && value !== null && value !== '') {
+            return value;
+        }
+    }
+    return null;
+}
+
+function firstAvailableNumber(...values) {
+    for (const value of values) {
+        if (value === undefined || value === null || value === '') continue;
+        const numeric = Number(value);
+        if (!Number.isNaN(numeric)) {
+            return numeric;
+        }
+    }
+    return null;
+}
+
+async function renderModalMapPreview(mapName) {
+    const previewContainer = document.getElementById('modal-map-preview');
+    const placeholder = document.getElementById('modal-map-placeholder');
+    if (!previewContainer || !placeholder) return;
+
+    const existingGrid = previewContainer.querySelector('[data-map-grid="true"]');
+    if (existingGrid) {
+        existingGrid.remove();
+    }
+
+    if (!mapName) {
+        placeholder.classList.remove('hidden');
+        return;
+    }
+
+    placeholder.classList.remove('hidden');
+
+    try {
+        const mapMeta = await findMapMetadata(mapName);
+        if (!mapMeta) {
+            throw new Error('الخريطة غير موجودة في القائمة');
+        }
+
+        const mapData = await fetchMapDataByFilename(mapMeta.filename);
+        const gridHTML = buildMapGridHTML(mapData);
+        if (!gridHTML) {
+            throw new Error('تعذر إنشاء مخطط الخريطة');
+        }
+
+        const tempWrapper = document.createElement('div');
+        tempWrapper.innerHTML = gridHTML.trim();
+        const gridElement = tempWrapper.firstElementChild;
+        if (gridElement) {
+            previewContainer.appendChild(gridElement);
+            placeholder.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل معاينة الخريطة:', error);
+        placeholder.classList.remove('hidden');
+    }
+}
+
+async function ensureMapsList() {
+    if (mapsCache.list) return mapsCache.list;
+    try {
+        const response = await fetch(`${API_URL}/maps/list`);
+        const data = await response.json();
+        if (data.success && Array.isArray(data.maps)) {
+            mapsCache.list = data.maps;
+            return mapsCache.list;
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل قائمة الخرائط:', error);
+    }
+    return null;
+}
+
+async function findMapMetadata(mapName) {
+    const mapsList = await ensureMapsList();
+    if (!mapsList || !mapName) return null;
+    const normalized = mapName.toString().toLowerCase();
+    return mapsList.find((map) => {
+        const nameMatch = (map.name || '').toLowerCase();
+        const fileMatch = (map.filename || '').toLowerCase();
+        return nameMatch === normalized || fileMatch.includes(normalized);
+    }) || null;
+}
+
+async function fetchMapDataByFilename(filename) {
+    if (!filename) return null;
+    if (mapsCache.data[filename]) return mapsCache.data[filename];
+    try {
+        const response = await fetch(`${API_URL}/maps/load/${filename}`);
+        const data = await response.json();
+        if (data && data.data) {
+            mapsCache.data[filename] = data;
+            return data;
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل بيانات الخريطة:', error);
+    }
+    return null;
+}
+
+function buildMapGridHTML(mapData) {
+    if (!mapData || !mapData.width || !mapData.height || !Array.isArray(mapData.data)) {
+        return '';
+    }
+
+    const cellLookup = new Map();
+    mapData.data.forEach((cell) => {
+        const key = `${cell.row}-${cell.col}`;
+        cellLookup.set(key, cell);
+    });
+
+    const cellSize = mapData.width > 32 ? 8 : 12;
+    const fontSize = Math.max(cellSize - 6, 6);
+
+    let html = '<div data-map-grid="true" class="inline-block border border-[#393628] bg-[#181711]">';
+    for (let row = 0; row < mapData.height; row++) {
+        html += '<div class="flex">';
+        for (let col = 0; col < mapData.width; col++) {
+            const cell = cellLookup.get(`${row}-${col}`);
+            let bg = (row + col) % 2 === 0 ? '#23221b' : '#393628';
+            let content = '';
+
+            if (cell) {
+                switch (cell.type) {
+                    case 'water':
+                        bg = '#1c3d6b';
+                        content = cell.hasDock ? '⚓' : '';
+                        break;
+                    case 'mountain':
+                        bg = '#5c3b2b';
+                        content = '⛰';
+                        break;
+                    case 'forest':
+                        bg = '#1f4d2f';
+                        content = '🌲';
+                        break;
+                    case 'city':
+                        bg = '#6b4c3a';
+                        content = '🏰';
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            html += `<div style="width:${cellSize}px;height:${cellSize}px;background:${bg};border:1px solid #222;display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;line-height:1;">${content}</div>`;
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+const modalPrimaryActionButton = document.getElementById('modal-primary-action');
+if (modalPrimaryActionButton) {
+    modalPrimaryActionButton.addEventListener('click', handleModalPrimaryAction);
+}
+
+const gameSettingsModalElement = document.getElementById('game-settings-modal');
+if (gameSettingsModalElement) {
+    gameSettingsModalElement.addEventListener('click', (event) => {
+        if (event.target === gameSettingsModalElement) {
+            closeGameSettingsModal();
+        }
+    });
+}
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && gameSettingsModalElement && !gameSettingsModalElement.classList.contains('hidden')) {
+        closeGameSettingsModal();
+    }
+});
+</script>
+
+<script>
+// نظام معالجة الدعوات المعلقة
+window.addEventListener('DOMContentLoaded', function() {
+    const userId = localStorage.getItem('userId');
+    const API_URL = `${window.location.origin}/api`;
+    
+    if (!userId) return;
+    
+    // دالة لجلب الدعوات المعلقة وعرض نافذة منفصلة
+    async function checkPendingInvites() {
+        try {
+            const response = await fetch(`${API_URL}/users/${userId}/pending-invites`);
+            if (!response.ok) return;
+            
+            const result = await response.json();
+            
+            if (result.success && result.invites && result.invites.length > 0) {
+                // 🔍 فلترة الدعوات لعرض فقط pending
+                const pendingInvites = result.invites.filter(inv => inv.status === 'pending');
+                
+                if (pendingInvites.length > 0) {
+                    // عرض أول دعوة معلقة فقط
+                    const invite = pendingInvites[0];
+                    showInviteModal(invite);
+                } else {
+                    // إغلاق أي مودال موجود إذا لم تكن هناك دعوات معلقة
+                    const existingModal = document.getElementById('invite-modal');
+                    if (existingModal) existingModal.remove();
+                }
+            } else {
+                // إغلاق أي مودال موجود إذا لم تكن هناك دعوات
+                const existingModal = document.getElementById('invite-modal');
+                if (existingModal) existingModal.remove();
+            }
+        } catch (error) {
+            console.error('خطأ في جلب الدعوات:', error);
+        }
+    }
+    
+    // دالة عرض نافذة الدعوة
+    function showInviteModal(invite) {
+        // إنشاء نافذة بسيطة للدعوة
+        const inviteHTML = `
+            <div id="invite-modal" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+                <div class="bg-surface-dark rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+                    <div class="text-center mb-6">
+                        <span class="material-symbols-outlined text-5xl text-primary mb-4 block">mail_outline</span>
+                        <h3 class="text-white text-2xl font-bold mb-2">دعوة من لاعب</h3>
+                        <p class="text-[#b9b49d]">تم دعوتك للانضمام لغرفة معركة</p>
+                    </div>
+                    
+                    <div class="bg-surface-darker rounded-lg p-4 mb-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="size-12 rounded-full bg-gray-700 overflow-hidden">
+                                <img alt="Avatar" class="w-full h-full object-cover" src="${invite.avatar_url || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22%3E%3Crect fill=%22%23e5e7eb%22 width=%2248%22 height=%2248%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2220%22 font-weight=%22bold%22 fill=%22%239ca3af%22 text-anchor=%22middle%22 dy=%22.3em%22%3E?%3C/text%3E%3C/svg%3E'}"/>
+                            </div>
+                            <div>
+                                <div class="text-white font-bold">${invite.username}</div>
+                                <div class="text-[#b9b49d] text-sm">يدعوك لغرفة: ${invite.game_name}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-3">
+                        <button class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-bold transition-colors reject-invite-btn">
+                            رفض
+                        </button>
+                        <button class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold transition-colors accept-invite-btn">
+                            قبول
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // إضافة النافذة إلى الصفحة
+        const existingModal = document.getElementById('invite-modal');
+        if (existingModal) existingModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', inviteHTML);
+        
+        // معالج الرد على الدعوة
+        document.querySelector('.accept-invite-btn').addEventListener('click', () => {
+            respondToInvite(invite.id, invite.game_id, userId, 'accepted');
+        });
+        
+        document.querySelector('.reject-invite-btn').addEventListener('click', () => {
+            respondToInvite(invite.id, invite.game_id, userId, 'rejected');
+        });
+    }
+    
+    // دالة الرد على الدعوة
+    async function respondToInvite(inviteId, gameId, userId, response) {
+        try {
+            const respResponse = await fetch(`${API_URL}/games/${gameId}/invite-response`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invite_id: inviteId,
+                    to_user_id: parseInt(userId),
+                    response: response
+                })
+            });
+            
+            const respResult = await respResponse.json();
+            
+            if (respResult.success) {
+                if (response === 'accepted') {
+                    console.log('✅ تم قبول الدعوة');
+                    alert('تم قبول الدعوة! سيتم نقلك إلى غرفة الانتظار');
+                    // الانتقال إلى صفحة الانتظار
+                    localStorage.setItem('gameId', gameId);
+                    window.location.href = 'غرفة الانتظار.html';
+                } else {
+                    console.log('❌ تم رفض الدعوة');
+                    alert('تم رفض الدعوة');
+                    // إغلاق النافذة والتحقق من الدعوات التالية
+                    document.getElementById('invite-modal').remove();
+                    // انتظر قليلاً ثم تحقق من الدعوات التالية
+                    setTimeout(checkPendingInvites, 1000);
+                }
+            }
+        } catch (error) {
+            console.error('خطأ في الرد على الدعوة:', error);
+            alert('خطأ في معالجة الرد');
+        }
+    }
+    
+    // التحقق من الدعوات المعلقة عند فتح الصفحة
+    checkPendingInvites();
+    
+    // التحقق من الدعوات الجديدة كل 10 ثوان
+    setInterval(checkPendingInvites, 10000);
+});
+
+// دوال إدارة الأصدقاء
+async function openAddFriendModal() {
+    document.getElementById('add-friend-modal').classList.remove('hidden');
+    await loadUsersList();
+}
+
+function closeFriendModal() {
+    document.getElementById('add-friend-modal').classList.add('hidden');
+}
+
+// === إرسال قوات للصديق ===
+let sendTroopsTargetFriendId = null;
+
+function openSendTroopsModal(friendId, friendName) {
+    sendTroopsTargetFriendId = friendId;
+    document.getElementById('send-troops-friend-name').textContent = friendName;
+    document.getElementById('send-troops-amount').value = '';
+    document.getElementById('send-troops-error').classList.add('hidden');
+    const currentReserve = parseInt(document.getElementById('reserve-army-display')?.textContent, 10) || 0;
+    document.getElementById('send-troops-current').textContent = currentReserve;
+    document.getElementById('send-troops-modal').classList.remove('hidden');
+}
+
+function closeSendTroopsModal() {
+    sendTroopsTargetFriendId = null;
+    document.getElementById('send-troops-modal').classList.add('hidden');
+}
+
+async function confirmSendTroops() {
+    const errorEl = document.getElementById('send-troops-error');
+    errorEl.classList.add('hidden');
+
+    const amount = parseInt(document.getElementById('send-troops-amount').value, 10);
+    if (!Number.isFinite(amount) || amount <= 0) {
+        errorEl.textContent = 'يرجى إدخال عدد صحيح أكبر من 0';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    const currentReserve = parseInt(document.getElementById('reserve-army-display')?.textContent, 10) || 0;
+    if (amount > currentReserve) {
+        errorEl.textContent = 'لا يملك جيش الاحتياط هذا العدد. رصيدك: ' + currentReserve;
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    if (!sendTroopsTargetFriendId) return;
+
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) return;
+
+        const response = await fetch(`${API_URL}/auth/transfer-troops`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ friendId: sendTroopsTargetFriendId, amount: amount })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            // تحديث العرض المحلي
+            const newReserve = data.senderReserve;
+            document.getElementById('reserve-army-display').textContent = newReserve;
+            setStoredReserveArmyValue(localStorage.getItem('userId'), newReserve);
+
+            closeSendTroopsModal();
+            alert(`✅ تم إرسال ${amount} جندي بنجاح!`);
+        } else {
+            errorEl.textContent = data.message || 'فشل في إرسال القوات';
+            errorEl.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('خطأ في إرسال القوات:', error);
+        errorEl.textContent = 'حدث خطأ في الاتصال بالخادم';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+async function loadUsersList() {
+    const usersList = document.getElementById('users-list');
+    usersList.innerHTML = '<p class="text-[#b9b49d] text-sm text-center py-4">جاري تحميل قائمة المستخدمين...</p>';
+    
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            usersList.innerHTML = '<p class="text-red-400 text-sm text-center py-4">يرجى تسجيل الدخول</p>';
+            return;
+        }
+        
+        const response = await fetch(`${API_URL}/auth/users`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.users && data.users.length > 0) {
+            displayUsersList(data.users);
+        } else {
+            usersList.innerHTML = '<p class="text-[#b9b49d] text-sm text-center py-4">لا يوجد مستخدمون متاحون</p>';
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل المستخدمين:', error);
+        usersList.innerHTML = '<p class="text-red-400 text-sm text-center py-4">خطأ في تحميل القائمة</p>';
+    }
+}
+
+function displayUsersList(users) {
+    const usersList = document.getElementById('users-list');
+    const currentUserId = localStorage.getItem('userId');
+    
+    usersList.innerHTML = users.filter(user => user.id != currentUserId).map(user => `
+        <div class="flex items-center justify-between p-3 bg-surface-darker rounded-lg hover:bg-[#2d2a1e] transition-colors cursor-pointer group">
+            <div class="flex items-center gap-3 flex-1">
+                <div class="size-10 rounded-full bg-cover bg-center border border-[#393628]" style="background-image: url('${user.avatar_url || 'assets/local/images/placeholder-40.svg'}')"></div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-white text-sm font-bold truncate group-hover:text-primary transition-colors">${user.username}</p>
+                    <p class="text-[#b9b49d] text-xs truncate">${user.email}</p>
+                </div>
+            </div>
+            <button onclick="addUserAsFriend(${user.id}, '${user.username.replace(/'/g, "\\'")}')" class="text-primary border border-primary hover:bg-primary hover:text-black px-3 py-1.5 rounded text-xs font-bold transition-colors">
+                إضافة
+            </button>
+        </div>
+    `).join('');
+    
+    if (usersList.innerHTML === '') {
+        usersList.innerHTML = '<p class="text-[#b9b49d] text-sm text-center py-4">لا يوجد مستخدمون آخرون</p>';
+    }
+}
+
+async function addUserAsFriend(userId, username) {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        const currentUserId = localStorage.getItem('userId');
+        if (!authToken) {
+            showNotification('⚠️ يرجى تسجيل الدخول أولاً', 'error');
+            return;
+        }
+        
+        console.log(`إرسال طلب صداقة من ${currentUserId} إلى ${userId}`);
+        
+        const response = await fetch(`${API_URL}/friends/request`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ friendId: userId })
+        });
+        
+        const data = await response.json();
+        console.log('استجابة الطلب:', data);
+        
+        if (data.success) {
+            showNotification(`✓ تم ارسال طلب صداقة ل ${username}`, 'success');
+            // تحديث قائمة المستخدمين لإزالة المستخدم المضاف
+            await loadUsersList();
+        } else {
+            showNotification(data.message || '❌ خطأ في إضافة الصديق', 'error');
+        }
+    } catch (error) {
+        console.error('خطأ في إضافة الصديق:', error);
+        showNotification('❌ خطأ في الاتصال', 'error');
+    }
+}
+
+function addFromFacebook() {
+    alert('تم التوجيه لصفحة الدخول عبر فيس بوك');
+    // يمكن إضافة رابط فيس بوك OAuth هنا
+    // window.location.href = 'https://www.facebook.com/oauth/...';
+}
+
+// مسح جميع بيانات الأصدقاء (للتصحيح)
+async function clearAllFriendsData() {
+    if (!confirm('هل أنت متأكد من مسح جميع بيانات الأصدقاء والطلبات؟')) {
+        return;
+    }
+    
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            alert('يرجى تسجيل الدخول أولاً');
+            return;
+        }
+
+        const response = await fetch(`${API_URL}/debug/clear-all-friends`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`✓ ${data.message}`);
+            loadFriendRequests();
+            loadAcceptedFriends();
+        } else {
+            alert('✗ خطأ: ' + (data.message || 'فشل المسح'));
+        }
+    } catch (error) {
+        console.error('خطأ في المسح:', error);
+        alert('✗ خطأ في الاتصال');
+    }
+}
+
+// تحميل طلبات الصداقة المعلقة
+async function loadFriendRequests() {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            console.warn('لا يوجد authToken');
+            return;
+        }
+
+        console.log('جاري تحميل طلبات الصداقة...');
+        console.log('API_URL:', API_URL);
+        console.log('الرابط الكامل:', `${API_URL}/friends/pending`);
+        console.log('authToken موجود:', authToken ? 'نعم' : 'لا');
+        
+        const response = await fetch(`${API_URL}/friends/pending`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log('حالة الاستجابة:', response.status);
+        console.log('response.ok:', response.ok);
+        const data = await response.json();
+        console.log('بيانات الاستجابة الكاملة:', data);
+        
+        // التحقق من وجود requests أو friends في الاستجابة
+        const requests = data.requests || data.friends || [];
+        console.log('requests:', requests);
+        console.log('عدد الطلبات:', requests.length);
+
+        if (data.success && requests && requests.length > 0) {
+            console.log(`✓ تم العثور على ${requests.length} طلبات صداقة`);
+            displayFriendRequests(requests);
+        } else {
+            console.log('✗ لا توجد طلبات صداقة');
+            const requestsList = document.getElementById('friend-requests-list');
+            if (requestsList) {
+                requestsList.innerHTML = '<p class="text-[#b9b49d] text-sm text-center py-6">لا توجد طلبات صداقة</p>';
+                const requestsCount = document.getElementById('friend-requests-count');
+                if (requestsCount) {
+                    requestsCount.textContent = '0';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل طلبات الصداقة:', error);
+    }
+}
+
+// تحميل الأصدقاء المقبولين
+async function loadAcceptedFriends() {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            return;
+        }
+
+        const response = await fetch(`${API_URL}/friends/accepted`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.friends && data.friends.length > 0) {
+            displayAcceptedFriends(data.friends);
+        } else {
+            const friendsList = document.getElementById('accepted-friends-list');
+            const friendsCount = document.getElementById('friends-count-badge');
+            
+            if (friendsList) {
+            
+                            if (friendsCount) {
+                                friendsCount.textContent = '0 صديق';
+                            }
+                friendsList.innerHTML = '<p class="text-[#b9b49d] text-sm text-center py-6">لا توجد أصدقاء حالياً</p>';
+            }
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل الأصدقاء:', error);
+    }
+}
+
+// عرض الأصدقاء المقبولين
+function displayAcceptedFriends(friends) {
+    const friendsContainer = document.getElementById('accepted-friends-list');
+    const friendsCount = document.getElementById('friends-count-badge');
+    
+    if (!friendsContainer) {
+        console.error('accepted-friends-list element not found');
+        return;
+    }
+    
+    if (friendsCount) {
+        friendsCount.textContent = `${friends.length} صديق`;
+    }
+
+    friendsContainer.innerHTML = friends.map(friend => `
+        <div class="flex items-center justify-between p-3 bg-surface-darker rounded-lg hover:bg-[#2d2a1e] transition-colors" data-friend-id="${friend.id}">
+            <div class="flex items-center gap-3 flex-1">
+                <div class="size-10 rounded-full bg-cover bg-center border border-[#393628]" style="background-image: url('${friend.avatar_url || 'assets/local/images/placeholder-40.svg'}')"></div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-white text-sm font-bold truncate">${friend.username}</p>
+                    <p class="text-[#b9b49d] text-xs truncate">${friend.email}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openSendTroopsModal(${friend.id}, '${friend.username}')" class="flex items-center justify-center p-2 text-green-400 border border-green-400 rounded hover:bg-green-400/10 transition-colors" title="أرسل قوات">
+                    <span class="material-symbols-outlined text-lg">military_tech</span>
+                </button>
+                <button onclick="openChat(${friend.id}, '${friend.username}', '${friend.avatar_url}')" class="flex items-center justify-center p-2 text-primary border border-primary rounded hover:bg-primary/10 transition-colors" title="فتح الشات">
+                    <span class="material-symbols-outlined text-lg">chat</span>
+                </button>
+                <button onclick="removeFriend(${friend.id})" class="flex items-center justify-center p-2 text-red-500 border border-red-500 rounded hover:text-red-400 hover:border-red-400 transition-colors" title="إلغاء الصداقة">
+                    <span class="material-symbols-outlined text-lg">person_remove</span>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// تحميل المجموعات
+async function loadGroupChats() {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            console.warn('❌ لا يوجد authToken لتحميل المجموعات');
+            return;
+        }
+
+        console.log('🔄 جاري تحميل المجموعات من API: ' + API_URL + '/messages/groups');
+
+        const response = await fetch(`${API_URL}/messages/groups`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            console.error('❌ خطأ في تحميل المجموعات:', response.status, response.statusText);
+            return;
+        }
+
+        const data = await response.json();
+        console.log('📥 رد API المجموعات:', data);
+        console.log('✅ عدد المجموعات المستلمة:', data.groups ? data.groups.length : 0);
+
+        if (data.success && data.groups && Array.isArray(data.groups)) {
+            console.log('🎯 عرض المجموعات:', data.groups.map(g => g.group_name).join(', '));
+            displayGroupChats(data.groups);
+        } else {
+            console.warn('⚠️ لا توجد مجموعات أو رد خاطئ:', data);
+            const groupsList = document.getElementById('group-chats-list');
+            const groupsCount = document.getElementById('groups-count-badge');
+
+            if (groupsCount) {
+                groupsCount.textContent = '0 مجموعة';
+            }
+
+            if (groupsList) {
+                groupsList.innerHTML = '<p class="text-[#b9b49d] text-sm text-center py-6">لا توجد مجموعات حالياً</p>';
+            }
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل المجموعات:', error);
+    }
+}
+
+// عرض المجموعات
+function displayGroupChats(groups) {
+    const groupsList = document.getElementById('group-chats-list');
+    const groupsCount = document.getElementById('groups-count-badge');
+
+    if (!groupsList) {
+        console.error('group-chats-list element not found');
+        return;
+    }
+
+    if (groupsCount) {
+        groupsCount.textContent = `${groups.length} مجموعة`;
+    }
+
+    groupsList.innerHTML = groups.map(group => {
+        const groupName = group.group_name || 'مجموعة بدون اسم';
+        const members = parseGroupMembers(group.member_ids || '');
+        const memberCount = members.length || 0;
+
+        return `
+        <div class="flex items-center justify-between p-3 bg-surface-darker rounded-lg hover:bg-[#2d2a1e] transition-colors">
+            <div class="flex items-center gap-3 flex-1 min-w-0">
+                <div class="size-10 rounded-full bg-[#2d2a1e] border border-[#393628] flex items-center justify-center text-primary">
+                    <span class="material-symbols-outlined text-lg">groups</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-white text-sm font-bold truncate">${groupName}</p>
+                    <p class="text-[#b9b49d] text-xs truncate">${memberCount} أعضاء</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openGroupChat('${group.chat_id}', '${groupName.replace(/'/g, "\\'")}', ${JSON.stringify(members).replace(/"/g, '&quot;')})" class="flex items-center justify-center p-2 text-primary border border-primary rounded hover:bg-primary/10 transition-colors" title="فتح المجموعة">
+                    <span class="material-symbols-outlined text-lg">chat</span>
+                </button>
+                <button onclick="leaveGroupChat('${group.chat_id}', '${groupName.replace(/'/g, "\\'")}')" class="flex items-center justify-center p-2 text-red-500 border border-red-500 rounded hover:text-red-400 hover:border-red-400 transition-colors" title="مغادرة المجموعة">
+                    <span class="material-symbols-outlined text-lg">logout</span>
+                </button>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+// مغادرة مجموعة
+async function leaveGroupChat(chatId, groupName) {
+    const confirmLeave = confirm(`هل تريد مغادرة مجموعة ${groupName}؟`);
+    if (!confirmLeave) {
+        return;
+    }
+
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            return;
+        }
+
+        const response = await fetch(`${API_URL}/messages/groups/${chatId}/leave`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showNotification(data.message || 'تمت مغادرة المجموعة', 'success');
+            loadGroupChats();
+        } else {
+            showNotification(data.message || 'خطأ في مغادرة المجموعة', 'error');
+        }
+    } catch (error) {
+        console.error('خطأ في مغادرة المجموعة:', error);
+        showNotification('خطأ في الاتصال', 'error');
+    }
+}
+
+// عرض طلبات الصداقة
+function displayFriendRequests(requests) {
+    const requestsList = document.getElementById('friend-requests-list');
+    const requestsCount = document.getElementById('friend-requests-count');
+    
+    console.log('displayFriendRequests called with:', requests);
+    
+    if (!requestsList) {
+        console.error('friend-requests-list element not found');
+        return;
+    }
+
+    if (requestsCount) {
+        requestsCount.textContent = requests.length;
+    }
+
+    requestsList.innerHTML = requests.map(request => `
+        <div class="flex items-center justify-between p-4 bg-surface-darker rounded-lg border border-[#393628] hover:border-primary/50 transition-colors">
+            <div class="flex items-center gap-3 flex-1">
+                <div class="size-12 rounded-full bg-cover bg-center border border-[#393628]" style="background-image: url('${request.avatar_url || 'https://via.placeholder.com/48'}')"></div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-white text-sm font-bold truncate">${request.username}</p>
+                    <p class="text-[#b9b49d] text-xs truncate">${request.email}</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="acceptFriendRequest(${request.id}, '${request.username.replace(/'/g, "\\'")}')" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-bold transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">check</span>
+                    قبول
+                </button>
+                <button onclick="rejectFriendRequest(${request.id})" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-bold transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">close</span>
+                    رفض
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// قبول طلب صداقة
+async function acceptFriendRequest(friendId, username) {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            alert('يرجى تسجيل الدخول أولاً');
+            return;
+        }
+
+        const response = await fetch(`${API_URL}/friends/accept`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ friendId })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // إعادة تحميل القوائم فوراً
+            await Promise.all([
+                loadFriendRequests(),
+                loadAcceptedFriends()
+            ]);
+            
+            // إشعار بالنجاح
+            showNotification(`تم قبول طلب صداقة من ${username} ✅`, 'success');
+        } else {
+            showNotification(data.message || 'خطأ في قبول الطلب', 'error');
+        }
+    } catch (error) {
+        console.error('خطأ في قبول الطلب:', error);
+        showNotification('خطأ في الاتصال', 'error');
+    }
+}
+
+// رفض طلب صداقة
+async function rejectFriendRequest(friendId) {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            alert('يرجى تسجيل الدخول أولاً');
+            return;
+        }
+
+        const response = await fetch(`${API_URL}/friends/reject`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ friendId })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // إعادة تحميل قائمة الطلبات
+            await loadFriendRequests();
+            showNotification('تم رفض طلب الصداقة', 'info');
+        } else {
+            showNotification(data.message || 'خطأ في رفض الطلب', 'error');
+        }
+    } catch (error) {
+        console.error('خطأ في رفض الطلب:', error);
+        showNotification('خطأ في الاتصال', 'error');
+    }
+}
+
+// إلغاء الصداقة
+async function removeFriend(friendId) {
+    if (!confirm('هل تريد إلغاء الصداقة؟')) {
+        return;
+    }
+
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showNotification('يرجى تسجيل الدخول أولاً', 'error');
+            return;
+        }
+
+        console.log('🗑️ جاري إزالة الصديق:', friendId);
+        console.log('📡 API URL:', `${API_URL}/friends/remove`);
+
+        const response = await fetch(`${API_URL}/friends/remove`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ friendId }),
+            credentials: 'include'
+        });
+
+        console.log('📊 الرد - Status:', response.status, 'OK:', response.ok);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ خطأ في الرد:', errorText);
+            showNotification('خطأ: ' + response.statusText, 'error');
+            return;
+        }
+
+        const data = await response.json();
+        console.log('✅ رد البيانات:', data);
+
+        if (data.success) {
+            await loadAcceptedFriends();
+            showNotification('تم إلغاء الصداقة بنجاح', 'success');
+        } else {
+            showNotification(data.message || 'خطأ في إزالة الصديق', 'error');
+        }
+    } catch (error) {
+        console.error('❌ خطأ في إزالة الصديق:', error);
+        console.error('📍 نوع الخطأ:', error.name);
+        console.error('📝 الرسالة:', error.message);
+        showNotification('خطأ في الاتصال: ' + error.message, 'error');
+    }
+}
+
+// إغلاق المودال عند الضغط خارجه
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('add-friend-modal');
+    if (modal && event.target === modal) {
+        closeFriendModal();
+    }
+});
+
+// ========== دوال نظام الشات الجماعي ==========
+
+// متغير لتخزين الأصدقاء المختارين للمحادثة الجماعية
+let selectedGroupMembers = [];
+let unreadMessagesCheckInterval = null; // متغير لتتبع polling الرسائل الجديدة
+let lastCheckedMessages = {}; // لتتبع الرسائل التي تم إشعار المستخدم بها
+let unreadSnapshotInitialized = false; // لمنع إشعارات الرسائل القديمة عند فتح الصفحة
+
+// دالة تشغيل صوت BEEP عند وصول رسالة
+function playNotificationSound() {
+    // إنشاء صوت BEEP باستخدام Web Audio API
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // تحديد تردد BEEP (440 Hz = A4 note)
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    
+    // مدة الصوت
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.2);
+}
+
+function isGroupMessage(message) {
+    return message && (message.is_group_chat === 1 || message.is_group_chat === '1' || message.is_group_chat === true);
+}
+
+function parseGroupMembers(memberIdsText) {
+    if (!memberIdsText) {
+        return [];
+    }
+
+    return memberIdsText
+        .split(',')
+        .map(id => parseInt(id.trim(), 10))
+        .filter(id => !Number.isNaN(id))
+        .map(id => ({ id }));
+}
+
+function buildGroupMembers(message) {
+    const members = parseGroupMembers(message.group_member_ids || '');
+
+    if (members.length === 0 && message.recipient_ids) {
+        members.push(...parseGroupMembers(message.recipient_ids));
+    }
+
+    const senderId = parseInt(message.sender_id, 10);
+    if (!Number.isNaN(senderId) && !members.some(member => member.id === senderId)) {
+        members.push({ id: senderId, avatar_url: message.avatar_url });
+    }
+
+    return members;
+}
+
+// فحص الرسائل الجديدة بشكل دوري
+async function checkUnreadMessages() {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            console.warn('❌ لا يوجد authToken');
+            return;
+        }
+        
+        const response = await fetch(`${API_URL}/messages/unread`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error('❌ خطأ في الرد:', response.status, response.statusText);
+            return;
+        }
+        
+        const data = await response.json();
+        
+        console.log('📬 رد الخادم:', data);
+        
+        if (data.success && data.unreadMessages) {
+            if (!unreadSnapshotInitialized) {
+                data.unreadMessages.forEach(message => {
+                    const messageKey = `${message.id}_${message.sender_id}`;
+                    lastCheckedMessages[messageKey] = true;
+
+                    if (!isGroupMessage(message)) {
+                        updateFriendUnreadIndicator(message.sender_id);
+                    }
+                });
+
+                unreadSnapshotInitialized = true;
+                console.log('✅ تم حفظ حالة الرسائل الحالية بدون إشعارات');
+                return;
+            }
+
+            if (data.unreadMessages.length > 0) {
+                console.log(`🔔 وجدنا ${data.unreadMessages.length} رسالة جديدة`);
+
+                // فحص الرسائل الجديدة
+                for (const message of data.unreadMessages) {
+                    const messageKey = `${message.id}_${message.sender_id}`;
+                    const groupMessage = isGroupMessage(message);
+                    const displayName = message.displayName || message.group_name || message.username || 'مستخدم';
+
+                    // إذا لم نكن قد أشعرنا المستخدم بهذه الرسالة من قبل
+                    if (!lastCheckedMessages[messageKey]) {
+                        const logPrefix = groupMessage ? `✅ رسالة جديدة في مجموعة ${displayName}` : `✅ رسالة جديدة من ${displayName}`;
+                        console.log(`${logPrefix}: "${message.message_text.substring(0, 40)}..."`);
+
+                        lastCheckedMessages[messageKey] = true;
+
+                        // تشغيل الصوت
+                        playNotificationSound();
+
+                        // عرض إشعار
+                        showMessageNotification(message);
+
+                        // تحديث مؤشر الأصدقاء في المحادثات الفردية فقط
+                        if (!groupMessage) {
+                            updateFriendUnreadIndicator(message.sender_id);
+                        }
+                    }
+                }
+            } else {
+                console.log('📬 لا توجد رسائل جديدة حالياً');
+            }
+        } else {
+            console.log('📬 لا توجد رسائل جديدة حالياً');
+        }
+    } catch (error) {
+        console.error('❌ خطأ في فحص الرسائل الجديدة:', error);
+    }
+}
+
+// عرض إشعار بصري للرسالة الجديدة
+function showMessageNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'fixed bottom-4 right-4 z-40 bg-gradient-to-r from-primary to-accent-gold rounded-lg shadow-2xl p-4 max-w-sm cursor-pointer animate-fade-in';
+    
+    const groupMessage = isGroupMessage(message);
+    const senderName = message.displayName || message.group_name || message.username || 'مستخدم';
+    const messagePreview = message.message_text.substring(0, 50) + (message.message_text.length > 50 ? '...' : '');
+    
+    notification.innerHTML = `
+        <div class="flex items-center gap-3">
+            <div class="size-12 rounded-full bg-cover bg-center border-2 border-white flex-shrink-0" 
+                 style="background-image: url('${message.avatar_url || 'https://via.placeholder.com/48'}')">
+            </div>
+            <div class="flex-1">
+                <p class="text-[#181711] font-bold text-sm">${groupMessage ? `💬 رسالة جديدة في مجموعة ${senderName}` : `💬 رسالة جديدة من ${senderName}`}</p>
+                <p class="text-[#181711] text-xs mt-1 line-clamp-2">${messagePreview}</p>
+            </div>
+            <button class="text-[#181711] ml-2 text-xl" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    // عند الضغط على الإشعار، افتح المحادثة
+    notification.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON') {
+            if (groupMessage) {
+                const groupName = message.displayName || message.group_name || 'مجموعة';
+                const members = buildGroupMembers(message);
+                openGroupChat(message.chat_id, groupName, members);
+            } else {
+                openChat(message.sender_id, message.username, message.avatar_url);
+            }
+            notification.remove();
+        }
+    });
+    
+    document.body.appendChild(notification);
+    
+    // إزالة الإشعار بعد 5 ثواني
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// تحديث مؤشر الرسائل غير المقروءة بجانب اسم الصديق
+function updateFriendUnreadIndicator(friendId) {
+    const friendElement = document.querySelector(`[data-friend-id="${friendId}"]`);
+    
+    if (friendElement) {
+        // التحقق من وجود مؤشر موجود
+        let indicator = friendElement.querySelector('.unread-indicator');
+        
+        if (!indicator) {
+            // إنشاء مؤشر جديد
+            indicator = document.createElement('span');
+            indicator.className = 'unread-indicator absolute top-0 right-0 bg-red-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-surface-dark';
+            indicator.textContent = '●';
+            friendElement.style.position = 'relative';
+            friendElement.appendChild(indicator);
+        }
+    }
+}
+
+// إزالة مؤشر الرسائل غير المقروءة عند قراءة الرسالة
+function removeFriendUnreadIndicator(friendId) {
+    const friendElement = document.querySelector(`[data-friend-id="${friendId}"]`);
+    
+    if (friendElement) {
+        const indicator = friendElement.querySelector('.unread-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+}
+
+// فتح نافذة إنشاء محادثة جماعية
+async function openGroupChatModal() {
+    selectedGroupMembers = [];
+    document.getElementById('group-chat-modal').classList.remove('hidden');
+    document.getElementById('group-name-input').value = '';
+    await loadFriendsForGroupChat();
+}
+
+// إغلاق نافذة المحادثة الجماعية
+function closeGroupChatModal() {
+    document.getElementById('group-chat-modal').classList.add('hidden');
+    selectedGroupMembers = [];
+}
+
+// تحميل قائمة الأصدقاء لاختيار المحادثة الجماعية
+async function loadFriendsForGroupChat() {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            return;
+        }
+
+        const response = await fetch(`${API_URL}/friends/accepted`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+        
+        if (data.success && data.friends && data.friends.length > 0) {
+            displayGroupFriendsList(data.friends);
+        } else {
+            const friendsList = document.getElementById('group-friends-list');
+            if (friendsList) {
+                friendsList.innerHTML = '<p class="text-[#b9b49d] text-sm text-center py-4">لا توجد أصدقاء</p>';
+            }
+        }
+    } catch (error) {
+        console.error('خطأ في تحميل الأصدقاء:', error);
+    }
+}
+
+// عرض قائمة الأصدقاء مع خيارات متعددة الاختيار
+function displayGroupFriendsList(friends) {
+    const container = document.getElementById('group-friends-list');
+    if (!container) return;
+    
+    container.innerHTML = friends.map(friend => `
+        <div class="flex items-center gap-3 p-2 hover:bg-[#2d2a1e] rounded cursor-pointer transition-colors">
+            <input 
+                type="checkbox" 
+                id="friend-${friend.id}" 
+                class="friend-checkbox w-4 h-4 cursor-pointer" 
+                data-friend-id="${friend.id}"
+                data-friend-name="${friend.username}"
+                data-friend-avatar="${friend.avatar_url || ''}"
+                onchange="toggleGroupMember(${friend.id}, '${friend.username}', '${friend.avatar_url || ''}')"
+            >
+            <label for="friend-${friend.id}" class="flex-1 flex items-center gap-2 cursor-pointer">
+                <div class="size-8 rounded-full bg-cover bg-center border border-[#393628]" style="background-image: url('${friend.avatar_url || 'https://via.placeholder.com/32'}')"></div>
+                <div>
+                    <p class="text-white text-sm font-bold">${friend.username}</p>
+                    <p class="text-[#b9b49d] text-xs">${friend.email}</p>
+                </div>
+            </label>
+        </div>
+    `).join('');
+}
+
+// التبديل بين اختيار وإلغاء اختيار عضو في المجموعة
+function toggleGroupMember(friendId, friendName, friendAvatar) {
+    const checkbox = document.getElementById(`friend-${friendId}`);
+    
+    if (checkbox.checked) {
+        // إضافة العضو
+        if (!selectedGroupMembers.find(m => m.id === friendId)) {
+            selectedGroupMembers.push({
+                id: friendId,
+                username: friendName,
+                avatar_url: friendAvatar
+            });
+        }
+    } else {
+        // إزالة العضو
+        selectedGroupMembers = selectedGroupMembers.filter(m => m.id !== friendId);
+    }
+    
+    console.log('الأعضاء المختارين:', selectedGroupMembers);
+}
+
+// إنشاء محادثة جماعية جديدة
+async function createGroupChat() {
+    const groupNameInput = document.getElementById('group-name-input');
+    const groupName = groupNameInput.value.trim();
+    
+    if (!groupName) {
+        showNotification('⚠️ الرجاء إدخال اسم المجموعة', 'error');
+        return;
+    }
+    
+    if (selectedGroupMembers.length < 2) {
+        showNotification('⚠️ يجب اختيار أكثر من صديق واحد', 'error');
+        return;
+    }
+    
+    try {
+        const authToken = localStorage.getItem('authToken');
+        const userId = parseInt(localStorage.getItem('userId'));
+        
+        // إضافة المستخدم الحالي إلى أعضاء المجموعة
+        const allMembers = [
+            { id: userId, username: 'أنت' },
+            ...selectedGroupMembers
+        ];
+        
+        const response = await fetch(`${API_URL}/messages/group/create`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                groupName: groupName,
+                participantIds: allMembers.map(m => m.id)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ تم إنشاء المجموعة:', data.chatId);
+            showNotification(`✅ تم إنشاء مجموعة ${groupName}`, 'success');
+
+            loadGroupChats();
+            
+            closeGroupChatModal();
+            
+            // فتح المجموعة الجديدة للشات
+            setTimeout(() => {
+                openGroupChat(data.chatId, groupName, allMembers);
+            }, 500);
+        } else {
+            showNotification('❌ ' + (data.message || 'فشل إنشاء المجموعة'), 'error');
+        }
+    } catch (error) {
+        console.error('❌ خطأ في إنشاء المجموعة:', error);
+        showNotification('❌ خطأ في الاتصال', 'error');
+    }
+}
+
+// فتح محادثة جماعية
+async function openGroupChat(chatId, groupName, members) {
+    console.log(`💬 فتح المحادثة الجماعية: ${groupName} (ID: ${chatId})`);
+    
+    // إيقاف الاستقصاء السابق إن وجد
+    if (chatPollingInterval) {
+        clearInterval(chatPollingInterval);
+    }
+    
+    // إظهار modal الشات
+    const chatModal = document.getElementById('chat-modal');
+    if (chatModal) {
+        // تعيين البيانات
+        document.getElementById('chat-friend-name').textContent = groupName;
+        
+        // إنشاء صور الأعضاء (أول 3 صور ملخصة)
+        const memberAvatars = members.slice(0, 3).map(m => m.avatar_url).filter(Boolean).join('|');
+        document.getElementById('chat-friend-avatar').src = members[0]?.avatar_url || 'assets/local/images/placeholder-40.svg';
+        
+        document.getElementById('chat-container').dataset.chatId = chatId;
+        document.getElementById('chat-container').dataset.isGroupChat = 'true';
+        document.getElementById('chat-container').dataset.groupMembers = JSON.stringify(members);
+        
+        chatModal.classList.remove('hidden');
+        chatModal.classList.add('flex');
+        
+        // تحميل الرسائل السابقة
+        await loadChatMessages(chatId);
+        
+        // بدء الاستقصاء الدوري
+        chatPollingInterval = setInterval(() => {
+            loadChatMessages(chatId, true);
+        }, 2000);
+    }
+}
+
+// ========== دوال نظام الشات ==========
+
+let chatPollingInterval = null; // متغير لتتبع interval الاستقصاء
+
+// فتح نافذة الشات مع صديق
+async function openChat(friendId, friendName, friendAvatar) {
+    console.log(`💬 فتح الشات مع ${friendName} (ID: ${friendId})`);
+    
+    // إزالة مؤشر الرسائل الجديدة
+    removeFriendUnreadIndicator(friendId);
+    
+    // إيقاف الاستقصاء السابق إن وجد
+    if (chatPollingInterval) {
+        clearInterval(chatPollingInterval);
+    }
+    
+    // إنشاء chat_id
+    const authToken = localStorage.getItem('authToken');
+    const userIdMatch = localStorage.getItem('userId');
+    const minId = Math.min(userIdMatch, friendId);
+    const maxId = Math.max(userIdMatch, friendId);
+    const chatId = `user_${minId}_${maxId}`;
+    
+    // إظهار modal الشات
+    const chatModal = document.getElementById('chat-modal');
+    if (chatModal) {
+        // تعيين البيانات
+        document.getElementById('chat-friend-name').textContent = friendName;
+        document.getElementById('chat-friend-avatar').src = friendAvatar || 'assets/local/images/placeholder-40.svg';
+        document.getElementById('chat-container').dataset.chatId = chatId;
+        document.getElementById('chat-container').dataset.friendId = friendId;
+        
+        chatModal.classList.remove('hidden');
+        chatModal.classList.add('flex');
+        
+        // تحميل الرسائل السابقة
+        await loadChatMessages(chatId);
+        
+        // بدء الاستقصاء الدوري لتحميل الرسائل الجديدة كل 2 ثانية
+        chatPollingInterval = setInterval(() => {
+            loadChatMessages(chatId, true); // silent mode للاستقصاء الدوري
+        }, 2000);
+    }
+}
+
+// تحميل رسائل المحادثة
+async function loadChatMessages(chatId, silent = false) {
+    try {
+        const authToken = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/messages/${chatId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (!silent) { // طباعة الرسالة فقط عند الطلب الأول
+                console.log(`📥 تم تحميل ${data.messages.length} رسالة`);
+            }
+            displayChatMessages(data.messages);
+            
+            // التمرير إلى آخر رسالة
+            const messagesContainer = document.getElementById('messages-container');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+    } catch (error) {
+        if (!silent) { // طباعة الخطأ فقط عند الطلب الأول
+            console.error('❌ خطأ في تحميل الرسائل:', error);
+        }
+    }
+}
+
+// عرض الرسائل
+function displayChatMessages(messages) {
+    const container = document.getElementById('messages-container');
+    const currentUserId = localStorage.getItem('userId');
+    
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    messages.forEach(msg => {
+        const isCurrentUser = msg.sender_id == currentUserId;
+        const messageEl = document.createElement('div');
+        const avatarUrl = msg.avatar_url || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23999%22/%3E%3C/svg%3E'; // استخدام SVG بديل
+        
+        messageEl.className = `flex gap-2 mb-3 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`;
+        messageEl.innerHTML = `
+            <img src="${avatarUrl}" alt="${msg.username}" class="w-8 h-8 rounded-full" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23999%22/%3E%3C/svg%3E'">
+            <div class="max-w-xs">
+                <p class="text-xs text-[#b9b49d] mb-1">${msg.username}</p>
+                <div class="bg-${isCurrentUser ? 'primary' : 'surface-darker'} text-${isCurrentUser ? '[#181711]' : 'white'} rounded-lg px-4 py-2">
+                    <p class="text-sm">${msg.message_text}</p>
+                </div>
+                <p class="text-xs text-[#b9b49d] mt-1">${new Date(msg.created_at).toLocaleTimeString('ar-SA')}</p>
+            </div>
+        `;
+        
+        container.appendChild(messageEl);
+    });
+}
+
+// إرسال رسالة
+async function sendChatMessage() {
+    const messageInput = document.getElementById('message-input');
+    const messageText = messageInput.value.trim();
+    
+    if (!messageText) {
+        return;
+    }
+    
+    try {
+        const authToken = localStorage.getItem('authToken');
+        const chatContainer = document.getElementById('chat-container');
+        const chatId = chatContainer.dataset.chatId;
+        const isGroupChat = chatContainer.dataset.isGroupChat === 'true';
+        
+        let recipientIds = [];
+        
+        if (isGroupChat) {
+            // محادثة جماعية - الحصول على أعضاء المجموعة
+            const members = JSON.parse(chatContainer.dataset.groupMembers || '[]');
+            const currentUserId = parseInt(localStorage.getItem('userId'));
+            recipientIds = members.map(m => m.id).filter(id => id !== currentUserId);
+        } else {
+            // محادثة فردية
+            const friendId = parseInt(chatContainer.dataset.friendId);
+            recipientIds = [friendId];
+        }
+        
+        console.log(`📤 إرسال رسالة: "${messageText}"`);
+        
+        const response = await fetch(`${API_URL}/messages/send`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                recipientIds: recipientIds,
+                messageText: messageText,
+                isGroupChat: isGroupChat,
+                chatId: isGroupChat ? chatId : undefined
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`✅ تم إرسال الرسالة بنجاح`);
+            messageInput.value = '';
+            
+            // إعادة تحميل الرسائل
+            await loadChatMessages(chatId);
+        } else {
+            showNotification('خطأ في إرسال الرسالة', 'error');
+        }
+    } catch (error) {
+        console.error('❌ خطأ في إرسال الرسالة:', error);
+        showNotification('خطأ في الاتصال', 'error');
+    }
+}
+
+// إغلاق نافذة الشات
+function closeChat() {
+    // إيقاف الاستقصاء الدوري
+    if (chatPollingInterval) {
+        clearInterval(chatPollingInterval);
+        chatPollingInterval = null;
+    }
+    
+    const chatModal = document.getElementById('chat-modal');
+    if (chatModal) {
+        chatModal.classList.add('hidden');
+        chatModal.classList.remove('flex');
+    }
+}
+
+// قبول رسالة Enter في input
+document.addEventListener('DOMContentLoaded', () => {
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) {
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+    }
+    
+    // 📊 تحميل إحصائيات اللاعب عند تحميل الصفحة
+    loadPlayerStatistics();
+});
+
+// 📊 دالة لتحميل إحصائيات اللاعب من السيرفر
+function parseStatDate(value) {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === 'number') {
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    if (typeof value === 'string') {
+        const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+        const date = new Date(normalized);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    return null;
+}
+
+async function loadPlayerStatistics() {
+    const userId = localStorage.getItem('currentUserId') || localStorage.getItem('userId');
+    
+    if (!userId) {
+        console.warn('⚠️ لم يتم العثور على معرف المستخدم');
+        return;
+    }
+    
+    console.log('📊 جلب إحصائيات اللاعب:', userId);
+    
+    try {
+        const response = await fetch(`${API_URL}/statistics/user/${userId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ تم جلب الإحصائيات:', data);
+            
+            // تحديث الإحصائيات الإجمالية
+            document.getElementById('stats-total-games').textContent = data.totals.totalGames || 0;
+            document.getElementById('stats-total-wins').textContent = data.totals.wins || 0;
+            document.getElementById('stats-total-losses').textContent = data.totals.losses || 0;
+            document.getElementById('stats-total-draws').textContent = data.totals.draws || 0;
+            document.getElementById('stats-total-kills').textContent = data.totals.totalPiecesKilled || 0;
+            document.getElementById('stats-total-moves').textContent = data.totals.totalMoves || 0;
+            
+            // تحديث البيانات في ملخص الأداء أيضاً
+            document.getElementById('total-games-summary').textContent = data.totals.totalGames || 0;
+            document.getElementById('total-wins-summary').textContent = data.totals.wins || 0;
+            document.getElementById('total-losses-summary').textContent = data.totals.losses || 0;
+            
+            // حساب نسبة الفوز
+            const winRate = data.totals.totalGames > 0 
+                ? Math.round((data.totals.wins / data.totals.totalGames) * 100) 
+                : 0;
+            document.getElementById('win-rate-summary').textContent = `${winRate}%`;
+
+            // تحديث الملخص اليومي وآخر 7 أيام بناءً على نتائج المباريات
+            if (data.statistics && data.statistics.length > 0) {
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+
+                const dailyStats = data.statistics.filter(stat => {
+                    const statDate = parseStatDate(stat.created_at);
+                    return statDate && statDate >= startOfToday;
+                });
+
+                const weeklyStats = data.statistics.filter(stat => {
+                    const statDate = parseStatDate(stat.created_at);
+                    return statDate && statDate >= sevenDaysAgo;
+                });
+
+                const summarize = (items) => {
+                    const games = items.length;
+                    const wins = items.filter(s => s.result === 'win').length;
+                    const losses = items.filter(s => s.result === 'loss').length;
+                    const rate = games > 0 ? Math.round((wins / games) * 100) : 0;
+                    return { games, wins, losses, rate };
+                };
+
+                const daily = summarize(dailyStats);
+                const weekly = summarize(weeklyStats);
+
+                const dailyGamesEl = document.getElementById('daily-games');
+                const dailyWinsEl = document.getElementById('daily-wins');
+                const dailyLossesEl = document.getElementById('daily-losses');
+                const dailyRateEl = document.getElementById('daily-rate');
+                if (dailyGamesEl) dailyGamesEl.textContent = daily.games;
+                if (dailyWinsEl) dailyWinsEl.textContent = daily.wins;
+                if (dailyLossesEl) dailyLossesEl.textContent = daily.losses;
+                if (dailyRateEl) dailyRateEl.textContent = `${daily.rate}%`;
+
+                document.getElementById('weekly-games').textContent = weekly.games;
+                document.getElementById('weekly-wins').textContent = weekly.wins;
+                document.getElementById('weekly-losses').textContent = weekly.losses;
+                document.getElementById('weekly-rate').textContent = `${weekly.rate}%`;
+                performanceSummaryFromStats = true;
+            } else {
+                const dailyGamesEl = document.getElementById('daily-games');
+                const dailyWinsEl = document.getElementById('daily-wins');
+                const dailyLossesEl = document.getElementById('daily-losses');
+                const dailyRateEl = document.getElementById('daily-rate');
+                if (dailyGamesEl) dailyGamesEl.textContent = '0';
+                if (dailyWinsEl) dailyWinsEl.textContent = '0';
+                if (dailyLossesEl) dailyLossesEl.textContent = '0';
+                if (dailyRateEl) dailyRateEl.textContent = '0%';
+                document.getElementById('weekly-games').textContent = '0';
+                document.getElementById('weekly-wins').textContent = '0';
+                document.getElementById('weekly-losses').textContent = '0';
+                document.getElementById('weekly-rate').textContent = '0%';
+                performanceSummaryFromStats = true;
+            }
+            
+            // تحديث جدول المباريات التفصيلي
+            const tableBody = document.getElementById('stats-table-body');
+            
+            if (data.statistics && data.statistics.length > 0) {
+                tableBody.innerHTML = '';
+                
+                data.statistics.forEach(stat => {
+                    // تنسيق المدة
+                    const durationMinutes = Math.floor(stat.match_duration / 60);
+                    const durationText = durationMinutes > 0 
+                        ? `${durationMinutes} د` 
+                        : `${stat.match_duration} ث`;
+                    
+                    // تحديد لون النتيجة
+                    let resultClass = '';
+                    let resultText = '';
+                    if (stat.result === 'win') {
+                        resultClass = 'text-green-400';
+                        resultText = '🏆 فوز';
+                    } else if (stat.result === 'loss') {
+                        resultClass = 'text-red-400';
+                        resultText = '😔 خسارة';
+                    } else {
+                        resultClass = 'text-yellow-400';
+                        resultText = '🤝 تعادل';
+                    }
+                    
+                    // تنسيق التاريخ
+                    const date = parseStatDate(stat.created_at);
+                    const dateText = date ? date.toLocaleDateString('ar-EG', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    }) : '-';
+                    
+                    const row = `
+                        <tr class="hover:bg-surface-darker/30 transition-colors">
+                            <td class="px-4 py-3 text-white font-medium">
+                                <div class="flex flex-col">
+                                    <span>${stat.battle_name || 'معركة'}</span>
+                                    <span class="text-xs text-[#b9b49d]">${stat.map_name || 'خريطة'}</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-center text-[#e2e0d6]">${stat.opponent_name || 'خصم'}</td>
+                            <td class="px-4 py-3 text-center font-bold ${resultClass}">${resultText}</td>
+                            <td class="px-4 py-3 text-center text-primary font-numbers">${stat.pieces_killed || 0}</td>
+                            <td class="px-4 py-3 text-center text-blue-400 font-numbers">${stat.moves_count || 0}</td>
+                            <td class="px-4 py-3 text-center text-[#b9b49d] font-numbers">${durationText}</td>
+                            <td class="px-4 py-3 text-center text-[#b9b49d] text-xs">${dateText}</td>
+                        </tr>
+                    `;
+                    
+                    tableBody.innerHTML += row;
+                });
+            } else {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-8 text-center text-[#b9b49d]">
+                            <div class="flex flex-col items-center gap-2">
+                                <span class="material-symbols-outlined text-4xl text-primary/30">query_stats</span>
+                                <p>لا توجد إحصائيات متاحة حالياً</p>
+                                <p class="text-xs">ابدأ بلعب المزيد من المعارك!</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+        } else {
+            console.error('❌ فشل جلب الإحصائيات:', data.message);
+        }
+    } catch (error) {
+        console.error('❌ خطأ في جلب الإحصائيات:', error);
+    }
+}
+
+// إغلاق modal الشات عند الضغط خارجه
+document.addEventListener('click', function(event) {
+    const chatModal = document.getElementById('chat-modal');
+    const groupChatModal = document.getElementById('group-chat-modal');
+    const addFriendModal = document.getElementById('add-friend-modal');
+    
+    if (chatModal && event.target === chatModal) {
+        closeChat();
+    }
+    
+    if (groupChatModal && event.target === groupChatModal) {
+        closeGroupChatModal();
+    }
+    
+    if (addFriendModal && event.target === addFriendModal) {
+        closeFriendModal();
+    }
+});
+</script>
+
+<!-- Chat Modal -->
+<div id="chat-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-surface-dark border border-[#393628] rounded-xl w-full max-w-2xl h-[600px] flex flex-col mx-4">
+        <!-- Chat Header -->
+        <div class="flex items-center justify-between p-4 border-b border-[#393628]">
+            <div class="flex items-center gap-3">
+                <img id="chat-friend-avatar" src="" alt="Friend" class="w-10 h-10 rounded-full">
+                <h3 id="chat-friend-name" class="text-white font-bold"></h3>
+            </div>
+            <button onclick="closeChat()" class="text-[#b9b49d] hover:text-white transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        
+        <!-- Messages Container -->
+        <div id="messages-container" class="flex-1 overflow-y-auto p-4"></div>
+        
+        <!-- Messages Input -->
+        <div id="chat-container" class="flex gap-2 p-4 border-t border-[#393628]">
+            <input 
+                id="message-input" 
+                type="text" 
+                placeholder="اكتب رسالتك هنا..." 
+                class="flex-1 bg-surface-darker border border-[#393628] rounded-lg px-4 py-2 text-white placeholder-[#b9b49d] focus:outline-none focus:border-primary"
+            >
+            <button 
+                onclick="sendChatMessage()" 
+                class="bg-primary hover:bg-accent-gold text-[#181711] font-bold px-4 py-2 rounded-lg transition-all flex items-center gap-2"
+            >
+                <span class="material-symbols-outlined text-lg">send</span>
+                إرسال
+            </button>
+        </div>
+    </div>
+</div>
+
+</body></html>

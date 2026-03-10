@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>الشطرنج الجغرافي - تحديد مساحة الخريطة</title>
+<link href="assets/local/fonts/local-fonts.css" rel="stylesheet"/>
+<script src="assets/local/tailwind-cdn.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#eecd2b",
+                        "background-light": "#f8f8f6",
+                        "background-dark": "#181711",
+                        "surface-dark": "#23221b",
+                        "surface-darker": "#1f1e16",
+                        "accent-gold": "#C6A618",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Cairo", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>body {
+    font-family: "Cairo", "Space Grotesk", sans-serif
+    }
+.font-numbers {
+    font-family: "Space Grotesk", sans-serif
+    }
+.map-pattern {
+    background-color: #181711;
+    background-image: url(assets/local/images/map-pattern.jpg)
+    }
+</style>
+<script>
+    function startDesign() {
+        const width = document.getElementById('mapWidth').value;
+        const height = document.getElementById('mapHeight').value;
+        
+        console.log('القيم المدخلة:', { width, height });
+        
+        // تخزين القيم في sessionStorage
+        sessionStorage.setItem('mapWidth', width);
+        sessionStorage.setItem('mapHeight', height);
+        
+        console.log('تم حفظ القيم:', { width, height });
+        console.log('من sessionStorage:', { 
+            mapWidth: sessionStorage.getItem('mapWidth'),
+            mapHeight: sessionStorage.getItem('mapHeight')
+        });
+        
+        // الذهاب إلى صفحة محرر الخرائط
+        window.location.href = 'محرر الخرائط الجغرافي.html';
+    }
+</script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen flex flex-col font-body map-pattern relative">
+<div class="border-b border-[#393628] bg-background-dark/95 backdrop-blur sticky top-0 z-40">
+<div class="px-6 lg:px-12 py-3 flex items-center justify-between max-w-[1440px] mx-auto w-full">
+<div class="flex items-center gap-4 text-white">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">castle</span>
+</div>
+<h1 class="text-white text-xl font-bold leading-tight tracking-wide hidden sm:block">الشطرنج الجغرافي</h1>
+</div>
+<nav class="hidden lg:flex items-center gap-8 mx-8">
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="index.html">الرئيسية</a>
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="#">الملف الشخصي</a>
+<a class="text-primary text-sm font-bold leading-normal border-b-2 border-primary pb-0.5" href="#">إنشاء مباراة</a>
+</nav>
+<div class="flex items-center gap-4 lg:gap-6">
+<button class="hidden md:flex items-center justify-center rounded-lg h-10 px-5 border border-primary/30 text-primary hover:bg-primary hover:text-[#181711] transition-all text-sm font-bold leading-normal group" onclick="logout()" title="تسجيل الخروج">
+<span class="truncate ml-2">خروج</span>
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">logout</span>
+</button>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 border-2 border-[#393628] cursor-pointer hover:border-primary transition-colors" data-alt="User avatar thumbnail showing a tactical commander" style='background-image: url("assets/local/images/default-avatar.jpg");'></div>
+</div>
+</div>
+</div>
+<main class="flex-1 w-full max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-10 blur-[2px]">
+<div class="mb-10 text-center">
+<h2 class="text-white text-4xl font-bold leading-tight mb-3">تجهيز ساحة المعركة</h2>
+<p class="text-[#b9b49d] text-lg max-w-2xl mx-auto">اختر خريطتك وحدد قوانين الاشتباك لبدء مناورة جديدة</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+<button class="group bg-surface-dark border-2 border-[#393628] hover:border-primary rounded-xl p-8 transition-all duration-300 relative overflow-hidden text-right flex flex-col items-center justify-center min-h-[240px]">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="size-20 rounded-full bg-surface-darker border border-[#393628] group-hover:border-primary/50 flex items-center justify-center mb-6 z-10 transition-colors">
+<span class="material-symbols-outlined text-4xl text-[#b9b49d] group-hover:text-primary transition-colors">upload_file</span>
+</div>
+<h3 class="text-white text-2xl font-bold mb-2 z-10 group-hover:text-primary transition-colors">تحميل خريطة</h3>
+<p class="text-[#b9b49d] text-sm text-center max-w-xs z-10">استخدم خريطة تكتيكية محفوظة مسبقاً من جهازك بصيغة مدعومة</p>
+</button>
+<button class="group bg-surface-dark border-2 border-[#393628] hover:border-primary rounded-xl p-8 transition-all duration-300 relative overflow-hidden text-right flex flex-col items-center justify-center min-h-[240px]">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="size-20 rounded-full bg-surface-darker border border-[#393628] group-hover:border-primary/50 flex items-center justify-center mb-6 z-10 transition-colors">
+<span class="material-symbols-outlined text-4xl text-[#b9b49d] group-hover:text-primary transition-colors">map</span>
+</div>
+<h3 class="text-white text-2xl font-bold mb-2 z-10 group-hover:text-primary transition-colors">إنشاء خريطة</h3>
+<p class="text-[#b9b49d] text-sm text-center max-w-xs z-10">صمم ساحة معركة جديدة باستخدام محرر الخرائط الجغرافي</p>
+</button>
+</div>
+<div class="lg:col-span-12">
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-8 relative">
+<div class="flex items-center gap-3 mb-8 border-b border-[#393628] pb-4">
+<span class="material-symbols-outlined text-primary text-2xl">settings</span>
+<h3 class="text-white text-xl font-bold">إعدادات المباراة</h3>
+</div>
+<form class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="col-span-1 md:col-span-2">
+<label class="block text-white font-bold mb-2 text-sm" for="room-name">اسم الغرفة</label>
+<div class="relative">
+<input class="w-full bg-surface-darker border border-[#393628] rounded-lg px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder-[#b9b49d]/50" id="room-name" placeholder="مثال: معركة الصحراء الكبرى" type="text" value="غرفة القائد أحمد #٨٤"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#b9b49d]">edit</span>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-white font-bold mb-4 text-sm">خصوصية المباراة</label>
+<div class="flex gap-4">
+<label class="cursor-pointer relative flex-1">
+<input checked="" class="peer sr-only" name="privacy" type="radio"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">public</span>
+<div>
+<span class="block text-white font-bold text-sm">عامة</span>
+<span class="block text-[#b9b49d] text-xs mt-1">يمكن لأي أحد الانضمام</span>
+</div>
+</div>
+</label>
+<label class="cursor-pointer relative flex-1">
+<input class="peer sr-only" name="privacy" type="radio"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">lock</span>
+<div>
+<span class="block text-white font-bold text-sm">خاصة</span>
+<span class="block text-[#b9b49d] text-xs mt-1">دعوة فقط</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-white font-bold mb-4 text-sm flex justify-between">
+<span>عدد اللاعبين</span>
+<span class="text-primary font-numbers">٢</span>
+</label>
+<div class="bg-surface-darker border border-[#393628] rounded-lg p-4 h-[74px] flex items-center justify-center">
+<input class="w-full h-2 bg-[#393628] rounded-lg appearance-none cursor-pointer accent-primary" max="8" min="2" type="range" value="2"/>
+<div class="flex justify-between w-full absolute px-8 pointer-events-none mt-8 text-[10px] text-[#b9b49d] font-numbers opacity-50">
+<span>٢</span>
+<span>٤</span>
+<span>٦</span>
+<span>٨</span>
+</div>
+</div>
+</div>
+<div class="col-span-1 md:col-span-2 pt-4 border-t border-[#393628]">
+<button class="flex items-center gap-2 text-[#b9b49d] text-sm hover:text-white transition-colors" type="button">
+<span class="material-symbols-outlined">expand_more</span>
+<span>إعدادات متقدمة (الوقت، الذكاء الاصطناعي، الخ)</span>
+</button>
+</div>
+</form>
+</div>
+<div class="mt-8 flex justify-end">
+<button class="flex items-center justify-center rounded-lg h-12 px-8 bg-primary hover:bg-primary/90 transition-colors text-[#181711] text-base font-bold shadow-[0_0_20px_rgba(238,206,43,0.4)]">
+<span class="ml-2">إنشاء الغرفة وبدء الانتظار</span>
+<span class="material-symbols-outlined">swords</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<div class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+<div class="bg-surface-dark w-full max-w-md border-2 border-[#393628] rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden animate-in fade-in zoom-in duration-300">
+<button class="absolute top-4 left-4 text-[#b9b49d] hover:text-white transition-colors rounded-lg hover:bg-white/5 p-1" onclick="window.location.href='/إنشاء مباراة.html'">
+<span class="material-symbols-outlined">close</span>
+</button>
+<div class="p-8">
+<div class="text-center mb-8">
+<div class="inline-flex items-center justify-center size-16 rounded-full bg-surface-darker border border-[#393628] mb-4 shadow-lg">
+<span class="material-symbols-outlined text-3xl text-primary">square_foot</span>
+</div>
+<h3 class="text-2xl font-bold text-white mb-2">تحديد مساحة الخريطة</h3>
+<p class="text-[#b9b49d] text-sm">حدد أبعاد رقعة اللعب لبدء تصميم الخريطة</p>
+</div>
+<form class="space-y-6">
+<div>
+<label class="block text-white font-bold mb-2 text-sm">العرض (عدد المربعات)</label>
+<div class="relative group">
+<input id="mapWidth" class="w-full bg-surface-darker border border-[#393628] rounded-lg px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder-[#b9b49d]/50 font-numbers pl-10" max="64" min="8" type="number" value="16"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#b9b49d] group-hover:text-primary transition-colors">straighten</span>
+</div>
+</div>
+<div>
+<label class="block text-white font-bold mb-2 text-sm">الطول (عدد المربعات)</label>
+<div class="relative group">
+<input id="mapHeight" class="w-full bg-surface-darker border border-[#393628] rounded-lg px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder-[#b9b49d]/50 font-numbers pl-10" max="64" min="8" type="number" value="16"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#b9b49d] group-hover:text-primary transition-colors rotate-90">straighten</span>
+</div>
+</div>
+<div class="flex items-start gap-3 p-3 bg-surface-darker border border-[#393628] rounded-lg">
+<span class="material-symbols-outlined text-[#b9b49d] text-lg mt-0.5">info</span>
+<p class="text-xs text-[#b9b49d] leading-relaxed">
+                        الحد الأدنى للأبعاد هو 8x8 مربعات والحد الأقصى 64x64 لضمان أفضل تجربة لعب استراتيجية.
+                    </p>
+</div>
+<button class="w-full bg-primary hover:bg-primary/90 text-[#181711] font-bold py-3.5 rounded-lg transition-all shadow-[0_0_15px_rgba(238,206,43,0.3)] hover:shadow-[0_0_20px_rgba(238,206,43,0.5)] flex items-center justify-center gap-2 mt-4" type="button" onclick="startDesign()">
+<span>بدء التصميم</span>
+<span class="material-symbols-outlined">design_services</span>
+</button>
+</form>
+</div>
+</div>
+</div>
+<script src="zoom.js"></script>
+<script>
+    // دالة تسجيل الخروج
+    function logout() {
+        localStorage.clear();
+        window.location.href = 'تسجيل دخول.html';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        initializeZoom('main');
+    });
+</script>
+</body></html>

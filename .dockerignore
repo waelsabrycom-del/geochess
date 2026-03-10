@@ -1,0 +1,19 @@
+node_modules
+npm-debug.log
+database/*.db
+uploads/avatars/*
+.env
+*.log
+.git
+.gitignore
+tests/
+docs/
+assets/backups/
+assets/design-sources/
+New folder/
+Knight_Images/
+README*.md
+QUICKSTART.md
+START_HERE.txt
+FIX_SUMMARY.js
+scripts/fix-hardcoded-ports.js

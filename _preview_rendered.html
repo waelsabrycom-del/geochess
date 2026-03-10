@@ -1,0 +1,642 @@
+﻿<!DOCTYPE html>
+<html class="dark h-screen overflow-hidden" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>معاينة المعركة - الشطرنج الجغرافي</title>
+<link href="assets/local/fonts/local-fonts.css" rel="stylesheet"/>
+<script src="assets/local/tailwind-cdn.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#eecd2b",
+                        "background-light": "#f8f8f6",
+                        "background-dark": "#181711",
+                        "surface-dark": "#23221b",
+                        "surface-darker": "#1f1e16",
+                        "accent-gold": "#C6A618",
+                        "status-green": "#4ade80",
+                        "status-red": "#ef4444",
+                        "terrain-water": "#1e3a8a",
+                        "terrain-mountain": "#451a03",
+                        "terrain-plain": "#3f6212",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Cairo", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Cairo", "Space Grotesk", sans-serif
+        }
+        .font-numbers {
+            font-family: "Space Grotesk", sans-serif
+        }
+        .map-pattern {
+            background-color: #181711;
+            background-image: radial-gradient(#393628 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1f1e16; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #393628; 
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #eecd2b; 
+        }
+        .map-cell {
+            aspect-ratio: 1;
+            position: relative;
+            transition: all 0.1s;
+            padding: 0;
+            margin: 0;
+            border: 1px solid #393628;
+        }
+        #map-grid-wrapper {
+          position: relative;
+          padding-top: 40px;
+          padding-right: 40px;
+        }
+        #map-axis-top,
+        #map-axis-right {
+          position: absolute;
+          pointer-events: none;
+          color: #eecd2b;
+          font-size: 16px;
+          font-family: "Space Grotesk", sans-serif;
+        }
+        #map-axis-top {
+          top: 0;
+          right: 40px;
+          left: 0;
+          display: grid;
+          grid-auto-flow: column;
+          grid-auto-columns: var(--cell-size, 40px);
+          gap: var(--cell-gap, 2px);
+          align-items: center;
+          justify-items: center;
+        }
+        #map-axis-right {
+          top: 40px;
+          right: 0;
+          bottom: 0;
+          display: grid;
+          grid-auto-flow: row;
+          grid-auto-rows: var(--cell-size, 40px);
+          gap: var(--cell-gap, 2px);
+          align-items: center;
+          justify-items: center;
+        }
+        #map-grid {
+          display: grid;
+          gap: var(--cell-gap, 2px);
+          grid-auto-flow: row;
+          grid-template-columns: repeat(auto-fit, minmax(var(--cell-size, 40px), 1fr));
+        }
+        .placed-unit {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 24px;
+            border-radius: 4px;
+            pointer-events: none;
+            user-select: none;
+        }
+        .mountain-cell {
+            position: relative;
+        }
+        .mountain-cell::before {
+            content: 'landscape';
+            font-family: 'Material Symbols Outlined', sans-serif;
+            font-size: 28px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.6;
+            z-index: 1;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white h-screen flex flex-col font-body map-pattern overflow-hidden">
+
+<!-- Header -->
+<div class="border-b border-[#393628] bg-background-dark/95 backdrop-blur sticky top-0 z-50 h-16 shrink-0">
+<div class="px-6 lg:px-8 h-full flex items-center justify-between w-full">
+  <div class="flex items-center gap-4 text-white">
+    <div class="size-8 text-primary flex items-center justify-center">
+      <span class="material-symbols-outlined text-3xl">preview</span>
+    </div>
+    <h1 class="text-white text-lg lg:text-xl font-bold leading-tight tracking-wide hidden sm:block">
+      معاينة المعركة
+    </h1>
+    <div class="bg-surface-dark border border-[#393628] rounded px-3 py-1 hidden md:flex items-center gap-2">
+      <span class="text-[#b9b49d] text-xs font-bold">المعركة:</span>
+      <span class="text-primary font-bold text-sm" id="battle-name-display">جاري التحميل...</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="hidden md:flex items-center gap-2 text-sm">
+      <span class="text-[#b9b49d]">الخريطة:</span>
+      <span id="map-name-display" class="text-white font-bold">جاري التحميل...</span>
+    </div>
+    <button id="back-to-home" class="text-[#b9b49d] hover:text-primary transition-colors flex items-center gap-2 text-sm font-bold">
+      <span class="material-symbols-outlined text-lg">home</span>
+      <span class="hidden sm:inline">الرئيسية</span>
+    </button>
+  </div>
+</div>
+</div>
+
+<!-- Main Content -->
+<main class="flex-1 w-full flex overflow-hidden relative items-center justify-center p-4">
+  <div id="preview-container" class="w-full h-full flex flex-col items-center justify-center gap-4">
+    <div id="map-grid-wrapper" class="relative">
+      <div id="map-axis-top"></div>
+      <div id="map-axis-right"></div>
+      <div id="map-grid" class="bg-black/20 rounded-lg p-2 shadow-lg"></div>
+    </div>
+    
+    <!-- المفتاح (Legend) -->
+    <div class="bg-surface-dark border border-[#393628] rounded-lg p-4 max-w-2xl w-full">
+      <h3 class="text-primary font-bold mb-3 flex items-center gap-2">
+        <span class="material-symbols-outlined">info</span>
+        معلومات الخريطة
+      </h3>
+      <div id="preview-info" class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-[#b9b49d] text-xs">لاعب 1</p>
+          <div class="flex items-center gap-2 mt-1">
+            <div id="player1-preview-flag" class="w-4 h-4 rounded border border-white/80"></div>
+            <span id="player1-preview-name" class="text-white font-bold">جاري التحميل</span>
+          </div>
+        </div>
+        <div>
+          <p class="text-[#b9b49d] text-xs">لاعب 2</p>
+          <div class="flex items-center gap-2 mt-1">
+            <div id="player2-preview-flag" class="w-4 h-4 rounded border border-white/80"></div>
+            <span id="player2-preview-name" class="text-white font-bold">جاري التحميل</span>
+          </div>
+        </div>
+      </div>
+      <p class="text-[#b9b49d] text-xs mt-4 border-t border-[#393628] pt-2">
+        🔒 هذه معاينة فقط - لا يمكنك التفاعل مع الخريطة
+      </p>
+    </div>
+  </div>
+  
+  <!-- حالة التحميل -->
+  <div id="loading-state" class="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur rounded-lg">
+    <div class="text-center">
+      <div class="animate-spin">
+        <span class="material-symbols-outlined text-4xl text-primary">hourglass_top</span>
+      </div>
+      <p class="text-white font-bold mt-2">جاري تحميل المعركة...</p>
+    </div>
+  </div>
+</main>
+
+<script>
+// ========== متغيرات عامة ==========
+let mapSize = 8;
+let cellSize = 40;
+let cellGap = 2;
+let mapData = {};
+
+// ========== الدوال الأساسية ==========
+
+// جلب معرّف المعركة من URL
+function getGameIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('gameId');
+}
+
+// تحميل بيانات المعركة
+async function loadBattleData() {
+  const gameId = getGameIdFromURL();
+  
+  if (!gameId) {
+    showError('❌ معرّف المعركة غير موجود في الرابط');
+    return;
+  }
+  
+  try {
+    const API_URL = `${window.location.origin}/api`;
+    console.log(`📥 جاري تحميل بيانات المعركة رقم: ${gameId}`);
+    
+    const response = await fetch(`${API_URL}/games/${gameId}`);
+    const data = await response.json();
+    
+    if (!data.success || !data.game) {
+      showError('❌ المعركة غير موجودة أو توقفت');
+      return;
+    }
+    
+    mapData = data.game;
+    console.log('✅ تم تحميل بيانات المعركة:', mapData);
+    
+    // تحديث المعلومات الأساسية
+    updateBattleInfo();
+    
+    // تحميل الخريطة وعرض الوحدات
+    await initializePreview();
+    
+    // إخفاء حالة التحميل
+    const loadingState = document.getElementById('loading-state');
+    if (loadingState) {
+      loadingState.style.display = 'none';
+    }
+    
+  } catch(err) {
+    console.error('❌ خطأ في تحميل بيانات المعركة:', err);
+    showError('❌ حدث خطأ في تحميل المعركة');
+  }
+}
+
+// تحديث معلومات المعركة
+function updateBattleInfo() {
+  // اسم المعركة
+  const battleNameEl = document.getElementById('battle-name-display');
+  if (battleNameEl && mapData.game_name) {
+    battleNameEl.textContent = mapData.game_name;
+  }
+  
+  // اسم الخريطة
+  const mapNameEl = document.getElementById('map-name-display');
+  if (mapNameEl && mapData.map_name) {
+    mapNameEl.textContent = mapData.map_name;
+  }
+  
+  // بيانات اللاعبين
+  const player1Name = mapData.host_name || 'اللاعب 1';
+  const player2Name = mapData.guest_name || 'اللاعب 2';
+  const player1Color = mapData.host_color || 'white';
+  const player2Color = mapData.guest_color || 'black';
+  
+  // تحديث أسماء اللاعبين
+  document.getElementById('player1-preview-name').textContent = player1Name;
+  document.getElementById('player2-preview-name').textContent = player2Name;
+  
+  // تحديث ألوان العلم
+  const player1Flag = document.getElementById('player1-preview-flag');
+  const player2Flag = document.getElementById('player2-preview-flag');
+  
+  if (player1Flag) {
+    player1Flag.style.backgroundColor = player1Color === 'white' ? '#ffffff' : '#000000';
+  }
+  if (player2Flag) {
+    player2Flag.style.backgroundColor = player2Color === 'white' ? '#ffffff' : '#000000';
+  }
+}
+
+// دالة مساعدة لتحميل الخريطة من السيرفر (بحث ذكي عن الملف)
+async function loadMapFile(mapName) {
+  const API_URL = `${window.location.origin}/api`;
+  
+  try {
+    // طلب من السيرفر للبحث عن الملف
+    const response = await fetch(`${API_URL}/maps/find/${mapName}`);
+    const result = await response.json();
+    
+    if (result.success && result.data) {
+      console.log(`✅ تم العثور على ملف الخريطة: ${result.filename}`);
+      return result.data;
+    } else {
+      throw new Error(result.message || 'لم يتم العثور على الخريطة');
+    }
+  } catch(err) {
+    console.warn(`⚠️ فشل البحث عن ${mapName}:`, err.message);
+    throw err;
+  }
+}
+
+// توحيد شكل بيانات الخريطة (يدعم grid القديمة و data الجديدة)
+function normalizeMapGrid(mapFile) {
+  if (!mapFile) return null;
+
+  if (Array.isArray(mapFile.grid)) {
+    return mapFile.grid;
+  }
+
+  if (Array.isArray(mapFile.data)) {
+    const width = Number(mapFile.width) || 8;
+    const height = Number(mapFile.height) || 8;
+    const grid = Array.from({ length: height }, () => Array(width).fill('plain'));
+
+    mapFile.data.forEach((cell) => {
+      const row = Number(cell.row);
+      const col = Number(cell.col);
+      if (Number.isNaN(row) || Number.isNaN(col)) return;
+      if (row < 0 || row >= height || col < 0 || col >= width) return;
+
+      const terrain = cell.type === 'normal' ? 'plain' : cell.type;
+      grid[row][col] = terrain || 'plain';
+    });
+
+    return grid;
+  }
+
+  return null;
+}
+
+// تهيئة معاينة الخريطة
+async function initializePreview() {
+  try {
+    // جلب بيانات الخريطة الديناميكية
+    const gameSettings = mapData.game_settings ? JSON.parse(mapData.game_settings) : {};
+    const mapName = gameSettings.mapName || mapData.map_name || '8X8_2026';
+    
+    console.log(`🗺️ جاري تحميل الخريطة: ${mapName}`);
+    
+    // جلب ملف الخريطة مع البحث الذكي
+    const mapFile = await loadMapFile(mapName);
+    const normalizedGrid = normalizeMapGrid(mapFile);
+    
+    if (!normalizedGrid) {
+      throw new Error('❌ ملف الخريطة غير صحيح');
+    }
+    
+    mapSize = normalizedGrid.length;
+    
+    // تعيين حجم الخلية بناءً على حجم الخريطة
+    cellSize = Math.max(24, Math.min(50, 500 / mapSize));
+    cellGap = Math.max(1, Math.floor(cellSize / 15));
+    
+    // تحديث CSS variables
+    const wrapper = document.getElementById('map-grid-wrapper');
+    wrapper.style.setProperty('--cell-size', `${cellSize}px`);
+    wrapper.style.setProperty('--cell-gap', `${cellGap}px`);
+    
+    // بناء الخريطة
+    buildMapGrid(normalizedGrid);
+    
+    // عرض الوحدات الموضوعة
+    await displayPlacedUnits();
+    
+    console.log('✅ تم تهيئة معاينة الخريطة');
+    
+  } catch(err) {
+    console.error('❌ خطأ في تهيئة المعاينة:', err);
+    
+    // محاولة إنشاء خريطة افتراضية بدلاً من الفشل الكامل
+    console.log('🔄 محاولة إنشاء خريطة افتراضية...');
+    try {
+      // إنشاء خريطة بحجم 8x8 افتراضي
+      const defaultGridSize = 8;
+      const defaultGrid = [];
+      for (let i = 0; i < defaultGridSize; i++) {
+        defaultGrid[i] = [];
+        for (let j = 0; j < defaultGridSize; j++) {
+          // عشوائي بين plain و water بشكل بسيط
+          defaultGrid[i][j] = Math.random() > 0.8 ? 'water' : 'plain';
+        }
+      }
+      
+      mapSize = defaultGridSize;
+      cellSize = 50;
+      cellGap = 2;
+      
+      const wrapper = document.getElementById('map-grid-wrapper');
+      wrapper.style.setProperty('--cell-size', `${cellSize}px`);
+      wrapper.style.setProperty('--cell-gap', `${cellGap}px`);
+      
+      buildMapGrid(defaultGrid);
+      await displayPlacedUnits();
+      
+      console.log('✅ تم إنشاء خريطة افتراضية');
+      
+      // عرض تنبيه للمستخدم
+      const mapNameEl = document.getElementById('map-name-display');
+      if (mapNameEl) {
+        mapNameEl.textContent = 'خريطة افتراضية';
+      }
+    } catch(fallbackErr) {
+      console.error('❌ فشل حتى إنشاء الخريطة الافتراضية:', fallbackErr);
+      showError(`❌ فشل تحميل الخريطة: ${err.message}`);
+    }
+  }
+
+}
+
+// بناء شبكة الخريطة
+function buildMapGrid(grid) {
+  const mapGrid = document.getElementById('map-grid');
+  const axisTop = document.getElementById('map-axis-top');
+  const axisRight = document.getElementById('map-axis-right');
+  
+  mapGrid.innerHTML = '';
+  axisTop.innerHTML = '';
+  axisRight.innerHTML = '';
+  
+  // محاور الأفقية (الحروف)
+  for (let col = 0; col < mapSize; col++) {
+    const cell = document.createElement('div');
+    cell.textContent = String.fromCharCode(65 + col);
+    axisTop.appendChild(cell);
+  }
+  
+  // محاور العمودية (الأرقام)
+  for (let row = 0; row < mapSize; row++) {
+    const cell = document.createElement('div');
+    cell.textContent = mapSize - row;
+    axisRight.appendChild(cell);
+  }
+  
+  // بناء الخلايا
+  mapGrid.style.gridTemplateColumns = `repeat(${mapSize}, var(--cell-size, 40px))`;
+  
+  for (let row = 0; row < mapSize; row++) {
+    for (let col = 0; col < mapSize; col++) {
+      const cell = document.createElement('div');
+      cell.className = 'map-cell hover:bg-white/5 transition-colors relative';
+      cell.setAttribute('data-row', row);
+      cell.setAttribute('data-col', col);
+      
+      // تحديد نوع الأرض
+      if (grid[row] && grid[row][col]) {
+        const terrain = grid[row][col];
+        
+        if (terrain === 'mountain') {
+          cell.classList.add('mountain-cell');
+          cell.style.backgroundColor = 'rgba(20, 10, 0, 0.6)';
+        } else if (terrain === 'water') {
+          cell.style.backgroundColor = 'rgba(10, 50, 100, 0.4)';
+        } else if (terrain === 'plain') {
+          cell.style.backgroundColor = 'rgba(20, 40, 10, 0.4)';
+        }
+      }
+      
+      mapGrid.appendChild(cell);
+    }
+  }
+  
+  console.log(`✅ تم بناء شبكة ${mapSize}x${mapSize}`);
+}
+
+// جلب الوحدات من API كبديل عندما تكون placed_units_data فارغة
+async function loadUnitsFromApi() {
+  const gameId = getGameIdFromURL();
+  if (!gameId) return [];
+
+  const API_URL = `${window.location.origin}/api`;
+  const response = await fetch(`${API_URL}/games/${gameId}/units`);
+  const data = await response.json();
+
+  if (!data.success || !data.units) {
+    return [];
+  }
+
+  const player1Units = Array.isArray(data.units.player1Units) ? data.units.player1Units : [];
+  const player2Units = Array.isArray(data.units.player2Units) ? data.units.player2Units : [];
+  return [...player1Units, ...player2Units];
+}
+
+// عرض الوحدات الموضوعة
+async function displayPlacedUnits() {
+  try {
+    let unitsList = [];
+
+    if (mapData.placed_units_data) {
+      const placedUnits = typeof mapData.placed_units_data === 'string'
+        ? JSON.parse(mapData.placed_units_data)
+        : mapData.placed_units_data;
+
+      unitsList = Object.entries(placedUnits).map(([posKey, unit]) => {
+        const [row, col] = String(posKey).split(',').map(Number);
+        return {
+          row,
+          col,
+          type: unit?.type,
+          name: unit?.name,
+          color: unit?.color
+        };
+      });
+      console.log(`🎮 عدد الوحدات الموضوعة (من game): ${unitsList.length}`);
+    } else {
+      unitsList = await loadUnitsFromApi();
+      console.log(`🎮 عدد الوحدات الموضوعة (من units API): ${unitsList.length}`);
+    }
+
+    if (!unitsList.length) {
+      console.log('⚠️ لا توجد وحدات موضوعة');
+      return;
+    }
+    
+    // ألوان لاععة لكل لون
+    const colorEmojis = {
+      'white': '⚪',
+      'black': '⚫',
+      'red': '🔴',
+      'blue': '🔵',
+      'green': '🟢',
+      'yellow': '🟡'
+    };
+    
+    // رموز الوحدات
+    const unitEmojis = {
+      'infantry': '👤',
+      'knight': '🏇',
+      'archer': '🏹',
+      'ship': '⛵',
+      'queen': '👑'
+    };
+    
+    for (const unit of unitsList) {
+      const row = Number(unit.row);
+      const col = Number(unit.col);
+      if (Number.isNaN(row) || Number.isNaN(col)) continue;
+      
+      const cell = document.querySelector(`.map-cell[data-row="${row}"][data-col="${col}"]`);
+      if (!cell) continue;
+      
+      const unitElement = document.createElement('div');
+      unitElement.className = 'placed-unit group cursor-default hover:scale-110 transition-transform';
+      
+      const color = unit.color || 'white';
+      const type = unit.type || 'infantry';
+      
+      const emoji = unitEmojis[type] || '🎖️';
+      const colorEmoji = colorEmojis[color] || '⚪';
+      
+      unitElement.innerHTML = `
+        <div class="relative flex flex-col items-center gap-0.5">
+          <span class="text-xl">${emoji}</span>
+          <span class="text-xs opacity-70">${colorEmoji}</span>
+          <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 -mb-1 hidden group-hover:block bg-surface-dark border border-primary/50 px-2 py-1 rounded text-xs whitespace-nowrap">
+            ${unit.name || type} (${type})
+          </div>
+        </div>
+      `;
+      
+      cell.appendChild(unitElement);
+    }
+    
+    console.log('✅ تم عرض الوحدات الموضوعة');
+    
+  } catch(err) {
+    console.error('❌ خطأ في عرض الوحدات:', err);
+  }
+}
+
+// عرض رسالة خطأ
+function showError(message) {
+  const container = document.getElementById('preview-container');
+  if (container) {
+    container.innerHTML = `
+      <div class="text-center">
+        <span class="material-symbols-outlined text-6xl text-red-400">error</span>
+        <p class="text-white font-bold mt-2">${message}</p>
+        <button id="try-again-btn" class="mt-4 px-4 py-2 rounded bg-primary/20 border border-primary text-primary hover:bg-primary/30 transition-colors">
+          إعادة المحاولة
+        </button>
+      </div>
+    `;
+    
+    document.getElementById('try-again-btn')?.addEventListener('click', () => {
+      window.location.reload();
+    });
+  }
+  
+  const loadingState = document.getElementById('loading-state');
+  if (loadingState) {
+    loadingState.style.display = 'none';
+  }
+}
+
+// ربط الأزرار
+document.addEventListener('DOMContentLoaded', () => {
+  const backBtn = document.getElementById('back-to-home');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+  }
+  
+  // تحميل بيانات المعركة
+  loadBattleData();
+});
+
+console.log('✅ صفحة معاينة المعركة جاهزة');
+</script>
+</body>
+</html>
+

@@ -1,0 +1,1781 @@
+﻿<!DOCTYPE html>
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>الشطرنج الجغرافي - إنشاء مباراة</title>
+<link href="assets/local/fonts/local-fonts.css" rel="stylesheet"/>
+<script src="assets/local/tailwind-cdn.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#eecd2b",
+                        "background-light": "#f8f8f6",
+                        "background-dark": "#181711",
+                        "surface-dark": "#23221b",
+                        "surface-darker": "#1f1e16",
+                        "accent-gold": "#C6A618",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Cairo", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>body {
+    font-family: "Cairo", "Space Grotesk", sans-serif
+    }
+.font-numbers {
+    font-family: "Space Grotesk", sans-serif
+    }
+.map-pattern {
+    background-color: #181711;
+    background-image: url(assets/local/images/map-pattern.jpg)
+    }</style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen flex flex-col font-body map-pattern">
+<div class="border-b border-[#393628] bg-background-dark/95 backdrop-blur sticky top-0 z-50">
+<div class="px-6 lg:px-12 py-3 flex items-center justify-between max-w-[1440px] mx-auto w-full">
+<div class="flex items-center gap-4 text-white">
+<div class="size-8 text-primary">
+<span class="material-symbols-outlined text-3xl">castle</span>
+</div>
+<h1 class="text-white text-xl font-bold leading-tight tracking-wide hidden sm:block">الشطرنج الجغرافي</h1>
+</div>
+<nav class="hidden lg:flex items-center gap-8 mx-8">
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="index.html">الرئيسية</a>
+<a class="text-white/80 hover:text-primary transition-colors text-sm font-bold leading-normal" href="ملف اللاعب الشخصي.html">الملف الشخصي</a>
+<a class="text-primary text-sm font-bold leading-normal border-b-2 border-primary pb-0.5" href="#">إنشاء مباراة</a>
+</nav>
+<div class="flex items-center gap-4 lg:gap-6">
+<button class="hidden md:flex items-center justify-center rounded-lg h-10 px-5 border border-primary/30 text-primary hover:bg-primary hover:text-[#181711] transition-all text-sm font-bold leading-normal group" onclick="logout()" title="تسجيل الخروج">
+<span class="truncate ml-2">خروج</span>
+<span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">logout</span>
+</button>
+<div id="header-avatar" class="bg-center bg-no-repeat bg-cover rounded-full size-10 border-2 border-[#393628] cursor-pointer hover:border-primary transition-colors" data-alt="User avatar thumbnail showing a tactical commander" style='background-image: url("assets/local/images/default-avatar.jpg");'></div>
+</div>
+</div>
+</div>
+<main class="flex-1 w-full max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
+<div class="mb-10 text-center">
+<div class="flex items-center justify-center gap-3 flex-wrap">
+<h2 class="text-white text-4xl font-bold leading-tight mb-0">تجهيز ساحة المعركة</h2>
+<div class="flex items-center gap-2">
+<span id="admin-title-label" class="text-black text-lg font-bold bg-primary px-3 py-1 rounded-lg">مدير البطولة:</span>
+<span id="admin-name-display" class="text-black text-xl font-bold"></span>
+</div>
+</div>
+<p class="text-[#b9b49d] text-lg max-w-2xl mx-auto mt-3">اختر خريطتك وحدد قوانين الاشتباك لبدء مناورة جديدة</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+<button class="group bg-surface-dark border-2 border-[#393628] hover:border-primary rounded-xl p-8 transition-all duration-300 relative overflow-hidden text-right flex flex-col items-center justify-center min-h-[240px]" id="load-map-btn">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="size-20 rounded-full bg-surface-darker border border-[#393628] group-hover:border-primary/50 flex items-center justify-center mb-6 z-10 transition-colors">
+<span class="material-symbols-outlined text-4xl text-[#b9b49d] group-hover:text-primary transition-colors">upload_file</span>
+</div>
+<h3 class="text-white text-2xl font-bold mb-2 z-10 group-hover:text-primary transition-colors">تحميل خريطة</h3>
+<p class="text-[#b9b49d] text-sm text-center max-w-xs z-10">استخدم خريطة تكتيكية محفوظة مسبقاً من جهازك بصيغة مدعومة</p>
+</button>
+<button class="group bg-surface-dark border-2 border-[#393628] hover:border-primary rounded-xl p-8 transition-all duration-300 relative overflow-hidden text-right flex flex-col items-center justify-center min-h-[240px]" id="create-map-btn" onclick="document.getElementById('create-map-choice-modal').classList.remove('hidden')">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="size-20 rounded-full bg-surface-darker border border-[#393628] group-hover:border-primary/50 flex items-center justify-center mb-6 z-10 transition-colors">
+<span class="material-symbols-outlined text-4xl text-[#b9b49d] group-hover:text-primary transition-colors">map</span>
+</div>
+<h3 class="text-white text-2xl font-bold mb-2 z-10 group-hover:text-primary transition-colors">إنشاء خريطة</h3>
+<p class="text-[#b9b49d] text-sm text-center max-w-xs z-10">صمم ساحة معركة جديدة باستخدام محرر الخرائط الجغرافي</p>
+</button>
+</div>
+<div class="lg:col-span-12">
+<div class="bg-surface-dark border border-[#393628] rounded-xl p-8 relative">
+<div class="flex items-center gap-3 mb-8 border-b border-[#393628] pb-4">
+<span class="material-symbols-outlined text-primary text-2xl">settings</span>
+<h3 class="text-white text-xl font-bold">إعدادات المباراة</h3>
+</div>
+<form class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="col-span-1 md:col-span-2">
+<label class="block text-white font-bold mb-2 text-sm" for="room-name">اسم الغرفة</label>
+<div class="relative">
+<input class="w-full bg-surface-darker border border-[#393628] rounded-lg px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder-[#b9b49d]/50" id="room-name" placeholder="مثال: معركة الصحراء الكبرى" type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#b9b49d]">edit</span>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-white font-bold mb-4 text-sm">خصوصية المباراة</label>
+<div class="flex gap-4">
+<label class="cursor-pointer relative flex-1">
+<input checked="" class="peer sr-only" name="privacy" type="radio"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">public</span>
+<div>
+<span class="block text-white font-bold text-sm">عامة</span>
+<span class="block text-[#b9b49d] text-xs mt-1">يمكن لأي أحد الانضمام</span>
+</div>
+</div>
+</label>
+<label class="cursor-pointer relative flex-1">
+<input class="peer sr-only" name="privacy" type="radio"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">lock</span>
+<div>
+<span class="block text-white font-bold text-sm">خاصة</span>
+<span class="block text-[#b9b49d] text-xs mt-1">دعوة فقط</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-white font-bold mb-4 text-sm">نمط اللعب</label>
+<div class="flex gap-4">
+<label class="cursor-pointer relative flex-1">
+<input checked="" class="peer sr-only" name="game-mode" type="radio" value="pvp"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">people</span>
+<div>
+<span class="block text-white font-bold text-sm">ضد لاعب</span>
+<span class="block text-[#b9b49d] text-xs mt-1">تحدي لاعب آخر</span>
+</div>
+</div>
+</label>
+<label class="cursor-pointer relative flex-1">
+<input class="peer sr-only" name="game-mode" type="radio" value="pvc"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">smart_toy</span>
+<div>
+<span class="block text-white font-bold text-sm">ضد الكمبيوتر</span>
+<span class="block text-[#b9b49d] text-xs mt-1">اختبر مهاراتك</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-white font-bold mb-4 text-sm flex justify-between">
+  <span>عدد اللاعبين</span>
+  <span class="text-primary font-numbers">٢</span>
+</label>
+<div id="player-count-display" class="bg-surface-darker border border-[#393628] rounded-lg p-4 h-[74px] flex items-center justify-center">
+  <span class="text-white">عدد اللاعبين ثابت: ٢</span>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-white font-bold mb-4 text-sm">طبيعة المباراة</label>
+<div class="flex gap-4">
+<label class="cursor-pointer relative flex-1">
+<input checked="" class="peer sr-only" name="game-nature" type="radio" value="traditional"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">history</span>
+<div>
+<span class="block text-white font-bold text-sm">تقليدية</span>
+<span class="block text-[#b9b49d] text-xs mt-1">إعدادات موحدة</span>
+</div>
+</div>
+</label>
+<label id="advanced-label" class="cursor-pointer relative flex-1">
+<input id="advanced-game-nature" class="peer sr-only" name="game-nature" type="radio" value="advanced"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">tune</span>
+<div>
+<span class="block text-white font-bold text-sm">متقدمة</span>
+<span class="block text-[#b9b49d] text-xs mt-1">إعدادات مخصصة</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-white font-bold mb-4 text-sm">لون الوحدات</label>
+<div class="flex gap-4">
+<label class="cursor-pointer relative flex-1">
+<input checked="" class="peer sr-only" name="piece-color" type="radio" value="white"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">brightness_7</span>
+<div>
+<span class="block text-white font-bold text-sm">أبيض</span>
+<span class="block text-[#b9b49d] text-xs mt-1">وحدات فاتحة</span>
+</div>
+</div>
+</label>
+<label class="cursor-pointer relative flex-1">
+<input class="peer sr-only" name="piece-color" type="radio" value="black"/>
+<div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">brightness_4</span>
+<div>
+<span class="block text-white font-bold text-sm">أسود</span>
+<span class="block text-[#b9b49d] text-xs mt-1">وحدات داكنة</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+<div class="col-span-1">
+  <label class="block text-white font-bold mb-2 text-sm">زمن المباراة</label>
+  <div class="flex flex-col gap-2">
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="radio" name="match-timer" value="unlimited" checked class="accent-primary" onchange="document.getElementById('match-time-minutes').disabled = true;" />
+      <span class="text-[#b9b49d]">مباراة حرة (غير محدودة الزمن)</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="radio" name="match-timer" value="timed" class="accent-primary" onchange="document.getElementById('match-time-minutes').disabled = !this.checked;" />
+      <span class="text-[#b9b49d]">مباراة بزمن</span>
+      <input id="match-time-minutes" type="number" min="1" max="180" value="10" disabled class="ml-2 w-24 bg-surface-darker border border-[#393628] rounded-lg px-2 py-1 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder-[#b9b49d]/50" placeholder="الدقائق" />
+      <span class="text-[#b9b49d]">دقيقة</span>
+    </label>
+  </div>
+</div>
+<div class="col-span-1">
+  <label class="block text-white font-bold mb-2 text-sm" for="army-distribution-time">زمن توزيع خطة الجيش (بالدقائق)</label>
+  <div class="relative">
+    <input class="w-full bg-surface-darker border border-[#393628] rounded-lg px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder-[#b9b49d]/50" id="army-distribution-time" placeholder="مثال: 2" type="number" min="1" max="10" value="2" data-army-time/>
+    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#b9b49d]">schedule</span>
+  </div>
+</div>
+<div class="col-span-1">
+<label class="block text-white font-bold mb-2 text-sm" for="turn-time">زمن الدور (بالثواني)</label>
+<div class="relative">
+<input class="w-full bg-surface-darker border border-[#393628] rounded-lg px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors placeholder-[#b9b49d]/50" id="turn-time" placeholder="مثال: 120" type="number" min="10" max="600" value="120" data-turn-time/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#b9b49d]">timer</span>
+</div>
+</div>
+<div class="col-span-1 md:col-span-2 pt-4 border-t border-[#393628]">
+<button id="advanced-settings-btn-troops" class="flex items-center gap-2 text-[#b9b49d] text-sm hover:text-white transition-colors" type="button">
+  <span class="material-symbols-outlined">expand_more</span>
+  <span>إعدادات متقدمة (الجنود)</span>
+</button>
+<div id="advanced-settings-panel" class="hidden mt-6 bg-surface-darker border border-[#393628] rounded-lg p-6">
+  <h4 class="text-white text-lg font-bold mb-4">قوة جيش الإحتياط</h4>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+      <h5 class="text-primary font-bold mb-2">قوة الجيش التي سوف تلعب بها</h5>
+      <label class="block text-white mb-2">عدد الجندي المشاة
+        <input type="number" min="0" value="8" class="block w-full mt-1 rounded bg-surface-dark border border-[#393628] text-white px-3 py-2" id="infantry1" />
+      </label>
+      <label class="block text-white mb-2">عدد الفارس
+        <input type="number" min="0" value="2" class="block w-full mt-1 rounded bg-surface-dark border border-[#393628] text-white px-3 py-2" id="knight1" />
+      </label>
+      <label class="block text-white mb-2">عدد الرامي
+        <input type="number" min="0" value="2" class="block w-full mt-1 rounded bg-surface-dark border border-[#393628] text-white px-3 py-2" id="archer1" />
+      </label>
+      <label class="block text-white mb-2">عدد المراكب
+        <input type="number" min="0" value="2" class="block w-full mt-1 rounded bg-surface-dark border border-[#393628] text-white px-3 py-2" id="ship1" />
+      </label>
+      <label class="block text-white mb-2">عدد الوزير
+        <input type="number" min="0" value="1" class="block w-full mt-1 rounded bg-surface-dark border border-[#393628] text-white px-3 py-2" id="wazir1" />
+      </label>
+    </div>
+    <div id="second-player-troops" class="">
+      <h5 class="text-primary font-bold mb-2">القوة العددية لجيش الإحتياط</h5>
+      <label class="block text-white mb-2">جيش الإحتياط
+        <input type="number" min="0" value="0" readonly class="block w-full mt-1 rounded bg-surface-dark border border-[#393628] text-white px-3 py-2" id="reserve-army-count" />
+      </label>
+      <p id="reserve-army-message" class="text-red-400 text-sm mt-2 hidden">جيش الإحتياط غير موجود</p>
+
+      <input type="hidden" id="infantry2" value="8" />
+      <input type="hidden" id="knight2" value="2" />
+      <input type="hidden" id="archer2" value="2" />
+      <input type="hidden" id="ship2" value="2" />
+      <input type="hidden" id="wazir2" value="1" />
+      <input type="hidden" id="leader2" value="1" />
+    </div>
+  </div>
+</div>
+</div>
+</form>
+</div>
+<div class="mt-8 flex justify-end">
+<button id="create-match-btn" class="flex items-center justify-center rounded-lg h-12 px-8 bg-primary hover:bg-primary/90 transition-colors text-[#181711] text-base font-bold shadow-[0_0_20px_rgba(238,206,43,0.4)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary" disabled>
+<span class="ml-2">إنشاء مباراة</span>
+<span class="material-symbols-outlined">swords</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<script src="zoom.js"></script>
+<script>
+// دالة تسجيل الخروج
+function logout() {
+    localStorage.clear();
+    window.location.href = 'تسجيل دخول.html';
+}
+
+// تحميل صورة المستخدم في الهيدر
+async function loadUserAvatarHeader() {
+  try {
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) return;
+
+    const API_URL = `${window.location.origin}/api`;
+    const response = await fetch(`${API_URL}/auth/profile`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+    if (data.success && data.user && data.user.avatar_url) {
+      const headerAvatar = document.getElementById('header-avatar');
+      if (headerAvatar) {
+        headerAvatar.style.backgroundImage = `url(${data.user.avatar_url})`;
+      }
+    }
+  } catch (error) {
+    console.error('خطأ في تحميل صورة المستخدم:', error);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', loadUserAvatarHeader);
+
+window.addEventListener('DOMContentLoaded', function() {
+  const pageParamsForTournamentFlow = new URLSearchParams(window.location.search);
+  const disableAdvancedTroopsInCreateForTournament =
+    pageParamsForTournamentFlow.get('source') === 'tournament-details' ||
+    pageParamsForTournamentFlow.get('from') === 'tournament-details' ||
+    document.referrer.includes('تفاصيل البطولة') ||
+    document.referrer.includes('%D8%AA%D9%81%D8%A7%D8%B5%D9%8A%D9%84');
+
+  // إظهار/إخفاء إعدادات الجنود والصعوبة
+  document.getElementById('advanced-settings-btn-troops').onclick = function() {
+    const panel = document.getElementById('advanced-settings-panel');
+    panel.classList.toggle('hidden');
+  };
+
+  // التعامل مع اختيار نمط اللعب
+  const gameModeInputs = document.querySelectorAll('input[name="game-mode"]');
+  const createMatchBtn = document.getElementById('create-match-btn');
+  const armyDistributionInput = document.getElementById('army-distribution-time');
+  
+  // حفظ قيمة زمن توزيع خطة الجيش عند كل تغيير
+  if (armyDistributionInput) {
+    armyDistributionInput.addEventListener('change', function() {
+      const value = this.value || 2;
+      localStorage.setItem('armyDistributionTime', value);
+      sessionStorage.setItem('armyDistributionTime', value);
+      console.log('✅ تم حفظ وقت توزيع الجيش:', value);
+    });
+    
+    // حفظ القيمة الأولية عند تحميل الصفحة
+    const initialValue = armyDistributionInput.value || 2;
+    localStorage.setItem('armyDistributionTime', initialValue);
+    sessionStorage.setItem('armyDistributionTime', initialValue);
+    console.log('✅ الوقت الابتدائي لتوزيع الجيش:', initialValue);
+  }
+  
+  const turnTimeInputField = document.getElementById('turn-time');
+  if (turnTimeInputField) {
+    const persistTurnTime = () => {
+      const value = turnTimeInputField.value || 120;
+      localStorage.setItem('turnTimeSeconds', value);
+      console.log('✅ تم حفظ زمن الدور:', value);
+    };
+    turnTimeInputField.addEventListener('change', persistTurnTime);
+    persistTurnTime();
+  }
+  
+  // معالج اختيار لون الوحدات
+  const pieceColorInputs = document.querySelectorAll('input[name="piece-color"]');
+  pieceColorInputs.forEach(input => {
+    input.addEventListener('change', function() {
+      const color = this.value;
+      const guestColor = color === 'white' ? 'black' : 'white';
+      
+      localStorage.setItem('playerPieceColor', color);
+      localStorage.setItem('guestPieceColor', guestColor);
+      
+      console.log('🎨 تم حفظ لون الوحدات:');
+      console.log('  • المضيف:', color);
+      console.log('  • الضيف:', guestColor);
+    });
+  });
+  
+  // حفظ الألوان الافتراضية
+  const initialColor = document.querySelector('input[name="piece-color"]:checked').value || 'white';
+  const initialGuestColor = initialColor === 'white' ? 'black' : 'white';
+  
+  localStorage.setItem('playerPieceColor', initialColor);
+  localStorage.setItem('guestPieceColor', initialGuestColor);
+  
+  console.log('🎨 الألوان الافتراضية المحفوظة:');
+  console.log('  • المضيف:', initialColor);
+  console.log('  • الضيف:', initialGuestColor);
+  
+  // معالج تغيير طبيعة المباراة
+  const gameNatureInputs = document.querySelectorAll('input[name="game-nature"]');
+  const advancedSettingsBtn = document.getElementById('advanced-settings-btn-troops');
+  const advancedSettingsPanel = document.getElementById('advanced-settings-panel');
+  
+  function applyGameNature(nature) {
+    console.log('Game nature changed to:', nature);
+    
+    if (nature === 'traditional') {
+      // إخفاء إعدادات متقدمة
+      if (advancedSettingsBtn) advancedSettingsBtn.style.display = 'none';
+      if (advancedSettingsPanel) advancedSettingsPanel.classList.add('hidden');
+      
+      // تعيين القيم الافتراضية للاعب الأول
+      const defaultValues = {
+        infantry1: 8,
+        knight1: 2,
+        archer1: 2,
+        ship1: 2,
+        wazir1: 1,
+        leader1: 1,
+        infantry2: 8,
+        knight2: 2,
+        archer2: 2,
+        ship2: 2,
+        wazir2: 1,
+        leader2: 1
+      };
+      
+      Object.entries(defaultValues).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.value = value;
+      });
+      
+    } else {
+      // إظهار إعدادات متقدمة
+      if (advancedSettingsBtn) advancedSettingsBtn.style.display = disableAdvancedTroopsInCreateForTournament ? 'none' : 'flex';
+    }
+
+    if (disableAdvancedTroopsInCreateForTournament) {
+      if (advancedSettingsBtn) advancedSettingsBtn.style.display = 'none';
+      if (advancedSettingsPanel) advancedSettingsPanel.classList.add('hidden');
+    }
+  }
+  
+  gameNatureInputs.forEach(input => {
+    input.addEventListener('change', function() {
+      const nature = this.value;
+      localStorage.setItem('gameNature', nature);
+      console.log('Game nature saved:', nature);
+      applyGameNature(nature);
+    });
+  });
+  
+  // تطبيق الطبيعة الافتراضية عند تحميل الصفحة
+  localStorage.setItem('gameNature', 'traditional');
+  console.log('Default game nature: traditional');
+  applyGameNature('traditional');
+
+  // منطق خصم قوة جيش الاحتياط عند زيادة وحدات اللاعب الأول
+  const RESERVE_ARMY_STORAGE_KEY_PREFIX = 'reserveArmyValue_';
+
+  function getReserveArmyStorageKey(userId = localStorage.getItem('userId')) {
+    const normalizedUserId = String(userId || '').trim();
+    if (!normalizedUserId) {
+      return `${RESERVE_ARMY_STORAGE_KEY_PREFIX}anonymous`;
+    }
+    return `${RESERVE_ARMY_STORAGE_KEY_PREFIX}${normalizedUserId}`;
+  }
+  const reserveInput = document.getElementById('reserve-army-count');
+  const reserveMessage = document.getElementById('reserve-army-message');
+  const trackedTroops = {
+    infantry1: { base: 8, cost: 1 },
+    knight1: { base: 2, cost: 10 },
+    archer1: { base: 2, cost: 4 },
+    wazir1: { base: 1, cost: 40 },
+    ship1: { base: 2, cost: 3 }
+  };
+
+  const troopInputs = Object.keys(trackedTroops)
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+
+  function getInitialReserveArmyValue() {
+    const parsed = parseInt(localStorage.getItem(getReserveArmyStorageKey()), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  function updateReserveArmyUI() {
+    const initialReserve = getInitialReserveArmyValue();
+    let spent = 0;
+
+    Object.entries(trackedTroops).forEach(([id, config]) => {
+      const input = document.getElementById(id);
+      if (!input) return;
+      const currentValue = Math.max(0, parseInt(input.value, 10) || 0);
+      const addedUnits = Math.max(0, currentValue - config.base);
+      spent += addedUnits * config.cost;
+    });
+
+    const remaining = Math.max(0, initialReserve - spent);
+
+    if (reserveInput) {
+      reserveInput.value = remaining;
+    }
+
+    // تحديد الحد الأقصى لكل وحدة بناءً على الرصيد المتبقي
+    Object.entries(trackedTroops).forEach(([id, config]) => {
+      const input = document.getElementById(id);
+      if (!input) return;
+      const currentValue = Math.max(0, parseInt(input.value, 10) || 0);
+      // كم وحدة إضافية يمكن شراؤها من الرصيد المتبقي
+      const maxExtra = Math.floor(remaining / config.cost);
+      input.max = currentValue + maxExtra;
+    });
+
+    const shouldDisable = remaining <= 0;
+    troopInputs.forEach((input) => {
+      const config = trackedTroops[input.id];
+      const currentValue = Math.max(0, parseInt(input.value, 10) || 0);
+      // تعطيل الحقل فقط إذا لم يبقَ رصيد كافٍ لشراء وحدة واحدة ولا يمكن تقليل القيمة
+      input.disabled = shouldDisable && currentValue <= (config ? config.base : 0);
+    });
+
+    if (reserveMessage) {
+      reserveMessage.classList.toggle('hidden', !shouldDisable);
+    }
+  }
+
+  troopInputs.forEach((input) => {
+    const config = trackedTroops[input.id];
+    input.addEventListener('input', function() {
+      const value = parseInt(this.value, 10);
+      const safeValue = Number.isFinite(value) ? value : config.base;
+      // فرض الحد الأقصى بناءً على الرصيد المتاح
+      const maxAllowed = this.max !== '' ? parseInt(this.max, 10) : Infinity;
+      this.value = Math.max(0, Math.min(safeValue, Number.isFinite(maxAllowed) ? maxAllowed : safeValue));
+      updateReserveArmyUI();
+    });
+  });
+
+  updateReserveArmyUI();
+
+  gameModeInputs.forEach(input => {
+    input.addEventListener('change', function() {
+      const isComputerMode = this.value === 'pvc';
+      const difficultyPanel = document.getElementById('difficulty-panel');
+      const secondPlayerTroops = document.getElementById('second-player-troops');
+      const advBtn = document.getElementById('advanced-settings-btn-troops');
+      const gameNatureInputs = document.querySelectorAll('input[name="game-nature"]');
+      
+      // تسجيل العناصر للتحقق من وجودها
+      console.log('Game mode changed:', isComputerMode);
+      console.log('difficultyPanel exists:', !!difficultyPanel);
+      console.log('secondPlayerTroops exists:', !!secondPlayerTroops);
+      console.log('advBtn exists:', !!advBtn);
+      
+      if(isComputerMode) {
+        // عند اختيار ضد الكمبيوتر - اجعل المباراة تقليدية فقط
+        gameNatureInputs.forEach(input => {
+          if (input.value === 'traditional') {
+            input.checked = true;
+          }
+          input.disabled = true;
+        });
+        applyGameNature('traditional');
+        
+        if(difficultyPanel) {
+          difficultyPanel.classList.remove('hidden');
+        }
+        if(secondPlayerTroops) {
+          secondPlayerTroops.classList.add('hidden');
+        }
+        if(advBtn) {
+          advBtn.style.marginTop = '6px';
+        }
+        if(createMatchBtn) {
+          const span = createMatchBtn.querySelector('span:first-child');
+          if(span) span.textContent = 'ابدأ مباراة';
+        }
+      } else {
+        // عند اختيار ضد لاعب - اسمح باختيار النمط
+        gameNatureInputs.forEach(input => {
+          input.disabled = false;
+        });
+        
+        if(difficultyPanel) {
+          difficultyPanel.classList.add('hidden');
+        }
+        if(secondPlayerTroops) {
+          secondPlayerTroops.classList.remove('hidden');
+        }
+        if(advBtn) {
+          advBtn.style.marginTop = '24px';
+        }
+        if(createMatchBtn) {
+          const span = createMatchBtn.querySelector('span:first-child');
+          if(span) span.textContent = 'إنشاء مباراة';
+        }
+      }
+    });
+  });
+
+  // معالج زر تحميل الخريطة
+  const loadMapBtn = document.getElementById('load-map-btn');
+  if(loadMapBtn) {
+    loadMapBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('map-loader-modal').classList.remove('hidden');
+      loadSavedMaps();
+      document.getElementById('map-preview-area').innerHTML = '<span class="text-[#b9b49d]">اختر خريطة للمعاينة</span>';
+      document.getElementById('load-selected-map').disabled = true;
+    });
+  }
+
+  // معالج زر تحميل خريطة للتعديل
+  const loadMapForEditBtn = document.getElementById('load-map-for-edit-btn');
+  if(loadMapForEditBtn) {
+    loadMapForEditBtn.addEventListener('click', async function() {
+      document.getElementById('create-map-choice-modal').classList.add('hidden');
+      const editModal = document.getElementById('edit-map-loader-modal');
+      const editList = document.getElementById('edit-maps-list');
+      editModal.classList.remove('hidden');
+      editList.innerHTML = '<li class="text-center text-[#b9b49d] py-4">جاري تحميل الخرائط...</li>';
+
+      try {
+        const res = await fetch('/api/maps/list');
+        const result = await res.json();
+
+        if (result.success && result.maps && result.maps.length > 0) {
+          editList.innerHTML = '';
+          result.maps.forEach(map => {
+            const li = document.createElement('li');
+            const mapDisplayName = map.name || map.filename.replace(/_/g, ' ').replace('.json', '');
+            const lockBadge = map.isLocked ? '<span class="text-red-400 font-bold text-xs bg-red-500/20 px-2 py-0.5 rounded border border-red-500 flex items-center gap-1"><span class="material-symbols-outlined text-xs">lock</span>🔒</span>' : '';
+            const draftBadge = map.isDraft ? '<span class="text-amber-400 font-bold text-xs bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500 flex items-center gap-1"><span class="material-symbols-outlined text-xs">draft</span>مسودة</span>' : '';
+
+            li.innerHTML = `
+              <button class="w-full px-4 py-3 rounded-lg bg-surface-darker hover:bg-amber-500/10 border border-[#393628] hover:border-amber-500 text-right transition-all text-white hover:text-amber-500">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 flex-1">
+                    <span class="font-bold">${mapDisplayName}</span>
+                    ${lockBadge}
+                    ${draftBadge}
+                  </div>
+                  <div class="flex items-center gap-1 text-xs text-[#b9b49d]">
+                    <span>${map.width || '?'}x${map.height || '?'}</span>
+                    <span class="material-symbols-outlined text-sm">edit</span>
+                  </div>
+                </div>
+              </button>
+            `;
+
+            li.querySelector('button').addEventListener('click', function() {
+              // حفظ اسم الملف في sessionStorage والانتقال للمحرر
+              sessionStorage.setItem('editMapFilename', map.filename);
+              sessionStorage.removeItem('mapWidth');
+              sessionStorage.removeItem('mapHeight');
+              window.location.href = 'محرر الخرائط الجغرافي.html';
+            });
+
+            editList.appendChild(li);
+          });
+        } else {
+          editList.innerHTML = '<li class="text-center text-[#b9b49d] py-4">لا توجد خرائط محفوظة</li>';
+        }
+      } catch (error) {
+        console.error('خطأ في تحميل قائمة الخرائط:', error);
+        editList.innerHTML = '<li class="text-center text-red-400 py-4">خطأ في تحميل الخرائط</li>';
+      }
+    });
+  }
+
+  // معالج زر إغلاق المودال
+  const closeBtn = document.getElementById('close-map-loader');
+  if(closeBtn) {
+    closeBtn.onclick = function() {
+      document.getElementById('map-loader-modal').classList.add('hidden');
+    };
+  }
+
+  // معالج زر تحميل الخريطة المختارة
+  const loadBtn = document.getElementById('load-selected-map');
+  if(loadBtn) {
+    loadBtn.onclick = function() {
+      if (!selectedMapData) return;
+      const mainLoadMapBtn = document.getElementById('load-map-btn');
+      if(mainLoadMapBtn) mainLoadMapBtn.querySelector('h3').textContent = 'تحميل خريطة: ' + selectedMapName;
+      document.getElementById('map-loader-modal').classList.add('hidden');
+      
+      const settings = JSON.parse(localStorage.getItem('matchSettings') || '{}');
+      settings.mapName = selectedMapName;
+      localStorage.setItem('matchSettings', JSON.stringify(settings));
+    };
+  }
+
+  // معالج زر إنشاء المباراة
+  if(createMatchBtn) {
+    createMatchBtn.onclick = function(e) {
+      e.preventDefault();
+      
+      const gameModeInputs = document.querySelectorAll('input[name="game-mode"]');
+      let gameMode = '';
+      gameModeInputs.forEach(input => { if(input.checked) gameMode = input.value; });
+      
+      const mainLoadMapBtn = document.getElementById('load-map-btn');
+      let mapName = '';
+      if(mainLoadMapBtn && mainLoadMapBtn.querySelector('h3')) {
+        const txt = mainLoadMapBtn.querySelector('h3').textContent;
+        if(txt.includes(':')) mapName = txt.split(':')[1].trim();
+      }
+      const mapLoaded = !!mapName && mapName !== '';
+      
+      const currentUser = localStorage.getItem('username') || 'لاعب مجهول';
+      
+      const privacyInputs = document.querySelectorAll('input[name="privacy"]');
+      let privacy = '';
+      privacyInputs.forEach(input => { if(input.checked) privacy = input.parentElement.textContent.trim(); });
+      
+      const difficultyInputs = document.querySelectorAll('input[name="difficulty"]');
+      let difficulty = '';
+      difficultyInputs.forEach(input => { if(input.checked) difficulty = input.value; });
+      
+      const armyDistributionField = document.getElementById('army-distribution-time');
+      const turnTimeField = document.getElementById('turn-time');
+      const armyDistributionTime = armyDistributionField ? (armyDistributionField.value || 2) : 2;
+      const turnTimeSeconds = turnTimeField ? (turnTimeField.value || 120) : 120;
+      localStorage.setItem('armyDistributionTime', armyDistributionTime);
+      localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
+      
+      // الحصول على طبيعة المعركة
+      const gameNatureInputs = document.querySelectorAll('input[name="game-nature"]');
+      let gameNature = 'traditional';
+      gameNatureInputs.forEach(input => { if(input.checked) gameNature = input.value; });
+      localStorage.setItem('gameNature', gameNature);
+      
+      if(!mapName) mapName = 'default_map';
+      if(!privacy) privacy = 'عامة';
+      
+      // جمع قيم زمن المباراة من الفورم
+      const matchTimerInputs = document.querySelectorAll('input[name="match-timer"]');
+      let matchTimer = 'unlimited';
+      matchTimerInputs.forEach(input => { if(input.checked) matchTimer = input.value; });
+      
+      const matchTimeMinutesField = document.getElementById('match-time-minutes');
+      const matchTimeMinutes = matchTimeMinutesField && !matchTimeMinutesField.disabled ? parseInt(matchTimeMinutesField.value, 10) : null;
+      
+      const roomNameInput = document.getElementById('room-name');
+      const settings = {
+        roomName: roomNameInput.value,
+        mapName: mapName,
+        privacy: privacy,
+        gameMode: gameMode,
+        gameNature: gameNature,
+        difficulty: difficulty,
+        matchTimer: matchTimer,
+        matchTimeMinutes: matchTimeMinutes,
+        infantry1: document.getElementById('infantry1').value,
+        knight1: document.getElementById('knight1').value,
+        archer1: document.getElementById('archer1').value,
+        wazir1: document.getElementById('wazir1').value,
+        ship1: document.getElementById('ship1').value,
+        infantry2: document.getElementById('infantry2').value,
+        knight2: document.getElementById('knight2').value,
+        archer2: document.getElementById('archer2').value,
+        wazir2: document.getElementById('wazir2').value,
+        ship2: document.getElementById('ship2').value,
+        armyDistributionTime: parseInt(armyDistributionTime, 10),
+        turnTimeSeconds: parseInt(turnTimeSeconds, 10)
+      };
+      
+      localStorage.setItem('matchSettings', JSON.stringify(settings));
+      localStorage.setItem('waitingRoomUsers', JSON.stringify([currentUser]));
+      
+      if(gameMode === 'pvc') {
+        if(!mapLoaded) {
+          alert('يرجى تحميل خريطة قبل بدء المباراة');
+          return;
+        }
+        // حفظ gameId مؤقت لوضع ضد الكمبيوتر
+        localStorage.setItem('gameId', 'computer_game_' + Date.now());
+        localStorage.setItem('gameMode', 'pvc');
+        sessionStorage.setItem('armyDistributionTime', armyDistributionTime);
+        sessionStorage.setItem('turnTimeSeconds', turnTimeSeconds);
+        setTimeout(() => {
+          window.location.href = 'مرحلة توزيع الجيش.html';
+        }, 300);
+        return;
+      }
+      
+      const API_URL = `${window.location.origin}/api`;
+      const userId = localStorage.getItem('userId');
+      
+      // التحقق من وجود مباراة بطولة (من URL فقط)
+      const params = new URLSearchParams(window.location.search);
+      const isTournamentMatch = params.get('isTournamentMatch') === 'true';
+      const tournamentMatchStr = isTournamentMatch ? localStorage.getItem('tournamentMatch') : null;
+
+      if (!isTournamentMatch) {
+        localStorage.removeItem('tournamentMatch');
+      }
+
+      if (isTournamentMatch) {
+        let storedTournamentMatch = {};
+        try {
+          storedTournamentMatch = JSON.parse(tournamentMatchStr || '{}');
+        } catch (e) {
+          storedTournamentMatch = {};
+        }
+
+        const tournamentId = params.get('tournamentId') || storedTournamentMatch.tournamentId || null;
+        const matchNumber = parseInt(params.get('matchNumber') || storedTournamentMatch.matchNumber || '0', 10) || null;
+        const player1Id = parseInt(params.get('player1Id') || storedTournamentMatch.player1Id || '0', 10) || null;
+        const player2Id = parseInt(params.get('player2Id') || storedTournamentMatch.player2Id || '0', 10) || null;
+        const player1Name = params.get('player1Name') ? decodeURIComponent(params.get('player1Name')) : (storedTournamentMatch.player1Name || null);
+        const player2Name = params.get('player2Name') ? decodeURIComponent(params.get('player2Name')) : (storedTournamentMatch.player2Name || null);
+
+        settings.tournamentCreated = true;
+        settings.tournamentAdminId = parseInt(userId, 10) || null;
+        settings.tournamentAdminName = localStorage.getItem('username') || currentUser || 'مدير البطولة';
+        settings.tournamentAdminLevel = parseInt(localStorage.getItem('level') || '0', 10) || null;
+        settings.tournamentId = tournamentId;
+        settings.matchNumber = matchNumber;
+        settings.player1Id = player1Id;
+        settings.player2Id = player2Id;
+        settings.player1Name = player1Name;
+        settings.player2Name = player2Name;
+        // حفظ معرّف منشئ الغرفة الحقيقي (الشخص الذي أنشأ الغرفة بالفعل)
+        settings.roomCreatorId = parseInt(userId, 10) || null;
+      }
+      
+      // إذا كانت مباراة بطولة، اجعل المدير هو host_id مؤقتاً
+      // سيتم تحديث host_id عندما يدخل player1 فعلياً
+      let hostId = userId;
+      if (isTournamentMatch) {
+        // المدير يكون host_id مؤقتاً حتى يدخل player1
+        settings.pendingHostId = parseInt(new URLSearchParams(window.location.search).get('player1Id'), 10) || null;
+        // host_id = roomCreatorId (المدير)
+        hostId = userId;
+      }
+      
+      // الحصول على اللون المختار حالياً من الـ form
+      const selectedColorInput = document.querySelector('input[name="piece-color"]:checked');
+      const playerColor = selectedColorInput ? selectedColorInput.value : 'white';
+      const guestColor = playerColor === 'white' ? 'black' : 'white';
+      
+      if (userId) {
+        fetch(`${API_URL}/games/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host_id: hostId,
+            game_name: roomNameInput.value || 'معركة جديدة',
+            map_name: mapName,
+            map_size: 'medium',
+            game_settings: settings,
+            host_color: playerColor,
+            guest_color: guestColor
+          })
+        })
+        .then(res => res.json())
+        .then(result => {
+          if (result.success) {
+            console.log('✅ تم إنشاء المباراة بنجاح:', result.gameId);
+            localStorage.setItem('gameId', result.gameId);
+            localStorage.setItem('adminMode_' + result.gameId, 'true');
+            console.log('✅ حفظ adminMode_' + result.gameId);
+          } else {
+            console.warn('⚠️ فشل إنشاء المباراة:', result.message);
+          }
+          setTimeout(() => {
+            window.location.href = 'غرفة الانتظار.html';
+          }, 500);
+        })
+        .catch(err => {
+          console.error('❌ خطأ في إنشاء المعركة:', err);
+          const gameId = localStorage.getItem('gameId') || ('game_' + Date.now());
+          if (!localStorage.getItem('gameId')) {
+            localStorage.setItem('gameId', gameId);
+          }
+          localStorage.setItem('adminMode_' + gameId, 'true');
+          console.log('✅ حفظ adminMode_' + gameId + ' (في حالة الخطأ)');
+          setTimeout(() => {
+            window.location.href = 'غرفة الانتظار.html';
+          }, 500);
+        });
+      } else {
+        console.warn('⚠️ لا توجد خريطة محددة');
+        const gameId = localStorage.getItem('gameId') || ('game_' + Date.now());
+        if (!localStorage.getItem('gameId')) {
+          localStorage.setItem('gameId', gameId);
+        }
+        localStorage.setItem('adminMode_' + gameId, 'true');
+        console.log('✅ حفظ adminMode_' + gameId);
+        setTimeout(() => {
+          window.location.href = 'غرفة الانتظار.html';
+        }, 500);
+      }
+    };
+  }
+
+  initializeZoom('main');
+});
+</script>
+
+</body></html>
+
+<!-- نافذة اختيار إنشاء خريطة -->
+<div id="create-map-choice-modal" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center hidden">
+  <div class="bg-surface-dark rounded-xl shadow-xl w-full max-w-lg p-8 relative">
+    <button onclick="document.getElementById('create-map-choice-modal').classList.add('hidden')" class="absolute top-4 left-4 text-white hover:text-primary text-2xl">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+    <div class="text-center mb-8">
+      <span class="material-symbols-outlined text-primary text-4xl mb-3">map</span>
+      <h3 class="text-white text-2xl font-bold">محرر الخرائط</h3>
+      <p class="text-[#b9b49d] text-sm mt-2">اختر الطريقة التي تريد بها فتح محرر الخرائط</p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <button id="load-map-for-edit-btn" class="group bg-surface-darker border-2 border-[#393628] hover:border-amber-500 rounded-xl p-6 transition-all flex flex-col items-center gap-3">
+        <div class="size-14 rounded-full bg-surface-dark border border-[#393628] group-hover:border-amber-500/50 flex items-center justify-center transition-colors">
+          <span class="material-symbols-outlined text-2xl text-[#b9b49d] group-hover:text-amber-500 transition-colors">edit_document</span>
+        </div>
+        <span class="text-white font-bold group-hover:text-amber-500 transition-colors">تحميل خريطة للتعديل</span>
+        <span class="text-[#b9b49d] text-xs text-center">افتح خريطة محفوظة لتعديلها</span>
+      </button>
+      <button onclick="window.location.href='تحديد مساحة الخريطة.html'" class="group bg-surface-darker border-2 border-[#393628] hover:border-green-500 rounded-xl p-6 transition-all flex flex-col items-center gap-3">
+        <div class="size-14 rounded-full bg-surface-dark border border-[#393628] group-hover:border-green-500/50 flex items-center justify-center transition-colors">
+          <span class="material-symbols-outlined text-2xl text-[#b9b49d] group-hover:text-green-500 transition-colors">add_circle</span>
+        </div>
+        <span class="text-white font-bold group-hover:text-green-500 transition-colors">خريطة جديدة</span>
+        <span class="text-[#b9b49d] text-xs text-center">أنشئ خريطة من الصفر</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- نافذة تحميل خريطة للتعديل -->
+<div id="edit-map-loader-modal" class="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center hidden">
+  <div class="bg-surface-dark rounded-xl shadow-xl w-full max-w-2xl p-6 relative max-h-[80vh] flex flex-col">
+    <button onclick="document.getElementById('edit-map-loader-modal').classList.add('hidden')" class="absolute top-4 left-4 text-white hover:text-primary text-2xl z-10">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+    <h4 class="text-white text-lg font-bold mb-4 flex items-center gap-2">
+      <span class="material-symbols-outlined text-amber-500">edit_document</span>
+      اختر خريطة للتعديل
+    </h4>
+    <ul id="edit-maps-list" class="space-y-2 overflow-y-auto flex-1"></ul>
+  </div>
+</div>
+
+<!-- نافذة تحميل الخرائط مع المعاينة الجانبية -->
+<div id="map-loader-modal" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center hidden">
+  <div class="bg-surface-dark rounded-xl shadow-xl w-full max-w-4xl flex overflow-hidden relative">
+    <!-- قائمة الخرائط -->
+    <div class="w-1/2 p-6 overflow-y-auto border-l border-[#393628]">
+      <h4 class="text-white text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">folder_open</span>
+        الخرائط المحفوظة
+      </h4>
+      <ul id="saved-maps-list" class="space-y-2"></ul>
+    </div>
+    <!-- البرفيو -->
+    <div class="w-1/2 p-6 flex flex-col items-center justify-center bg-surface-darker">
+      <h4 class="text-white text-lg font-bold mb-4 flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">visibility</span>
+        معاينة الخريطة
+      </h4>
+      <div id="map-preview-area" class="w-full flex items-center justify-center min-h-[300px]">
+        <span class="text-[#b9b49d]">اختر خريطة للمعاينة</span>
+      </div>
+      <button id="load-selected-map" class="mt-8 px-8 py-3 rounded-lg bg-primary text-[#181711] font-bold text-base shadow hover:bg-primary/90 transition-colors" disabled>
+        تحميل الخريطة
+      </button>
+    </div>
+    <button id="close-map-loader" class="absolute top-4 left-4 text-white hover:text-primary text-2xl">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+</div>
+
+<script>
+let mainLoadMapBtn = null; // متغير عام لزر تحميل الخريطة
+
+// استرجاع الإعدادات المحفوظة عند فتح الصفحة
+window.addEventListener('DOMContentLoaded', function() {
+  const savedSettings = JSON.parse(localStorage.getItem('matchSettings') || '{}');
+  
+  // الحصول على زر تحميل الخريطة بعد تحميل DOM
+  mainLoadMapBtn = document.getElementById('load-map-btn');
+  
+  console.log('🔧 بيانات الجلسة المحفوظة:', savedSettings);
+  console.log('🔧 محتويات savedSettings بالتفصيل:', JSON.stringify(savedSettings, null, 2));
+  
+  // إضافة مراقب لحقل اسم الغرفة
+  const roomNameInput = document.getElementById('room-name');
+  if (roomNameInput) {
+    roomNameInput.addEventListener('input', function() {
+      checkCreateButtonState();
+    });
+    
+    // فحص أولي
+    setTimeout(() => checkCreateButtonState(), 500);
+  }
+  
+  // استرجاع الإعدادات المحفوظة عند فتح الصفحة
+  if(savedSettings.roomName) {
+    const roomNameInput = document.getElementById('room-name');
+    if(roomNameInput) roomNameInput.value = savedSettings.roomName;
+  }
+  
+  // استرجاع اسم الخريطة (عرض البسيط في الزر)
+  // فحص mapDisplayName أولاً، ثم mapName إذا لم يكن موجود
+  const mapToLoad = savedSettings.mapDisplayName || savedSettings.mapName;
+  
+  if(mapToLoad && mainLoadMapBtn) {
+    // إزالة .json إذا كان موجود في الاسم
+    const displayName = mapToLoad.replace('_1770409379424.json', '').replace('.json', '');
+    mainLoadMapBtn.querySelector('h3').textContent = 'تحميل خريطة: ' + displayName;
+    // تعيين حالة الخريطة كمحملة
+    mapLoaded = true;
+    console.log('✅ تم استرجاع خريطة محفوظة من جلسة سابقة:', displayName);
+    console.log('✅ تم تعيين mapLoaded =', mapLoaded);
+  } else {
+    console.log('⚠️ لم يتم العثور على خريطة محفوظة');
+    console.log('   mapDisplayName:', savedSettings.mapDisplayName);
+    console.log('   mapName:', savedSettings.mapName);
+    console.log('   mainLoadMapBtn:', mainLoadMapBtn);
+    console.log('   mapLoaded =', mapLoaded);
+    
+    // تحميل الخريطة الافتراضية 8X8_2026
+    loadDefaultMap();
+  }
+  
+  // استرجاع الخصوصية
+  if(savedSettings.privacy) {
+    const privacyInputs = document.querySelectorAll('input[name="privacy"]');
+    privacyInputs.forEach(input => {
+      if(input.parentElement.textContent.trim() === savedSettings.privacy) {
+        input.checked = true;
+      }
+    });
+  }
+  
+  // استرجاع نمط اللعب
+  if(savedSettings.gameMode) {
+    const gameModeInputs = document.querySelectorAll('input[name="game-mode"]');
+    gameModeInputs.forEach(input => {
+      if(input.value === savedSettings.gameMode) {
+        input.checked = true;
+        input.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+  
+  // استرجاع مستوى الصعوبة
+  if(savedSettings.difficulty) {
+    const difficultyInputs = document.querySelectorAll('input[name="difficulty"]');
+    difficultyInputs.forEach(input => {
+      if(input.value === savedSettings.difficulty) {
+        input.checked = true;
+      }
+    });
+  }
+
+  // استرجاع أزمنة الجولة وتوزيع الجيش
+  const turnTimeInput = document.getElementById('turn-time');
+  const armyDistributionInput = document.getElementById('army-distribution-time');
+
+  const applyTimingSettings = (settings) => {
+    if(!settings) return;
+    if(turnTimeInput && settings.turnTimeSeconds != null) {
+      turnTimeInput.value = settings.turnTimeSeconds;
+      localStorage.setItem('turnTimeSeconds', settings.turnTimeSeconds);
+    }
+    if(armyDistributionInput && settings.armyDistributionTime != null) {
+      armyDistributionInput.value = settings.armyDistributionTime;
+      localStorage.setItem('armyDistributionTime', settings.armyDistributionTime);
+    }
+  };
+
+  // أولوية: matchSettings ثم local/session storage
+  applyTimingSettings(savedSettings);
+
+  if(turnTimeInput && !savedSettings.turnTimeSeconds) {
+    const persistedTurnTime = localStorage.getItem('turnTimeSeconds') || sessionStorage.getItem('turnTimeSeconds');
+    if(persistedTurnTime) turnTimeInput.value = persistedTurnTime;
+  }
+
+  if(armyDistributionInput && !savedSettings.armyDistributionTime) {
+    const persistedArmyTime = localStorage.getItem('armyDistributionTime') || sessionStorage.getItem('armyDistributionTime');
+    if(persistedArmyTime) armyDistributionInput.value = persistedArmyTime;
+  }
+
+  // للضيف: إذا لم توجد إعدادات محلية، اجلبها من السيرفر عبر gameId
+  if((!savedSettings.turnTimeSeconds || !savedSettings.armyDistributionTime)) {
+    const gameId = localStorage.getItem('gameId');
+    if(gameId && !String(gameId).startsWith('computer_game_')) {
+      const API_URL = `${window.location.origin}/api`;
+      fetch(`${API_URL}/games/${gameId}`)
+        .then(res => res.json())
+        .then(result => {
+          if(result && result.success && result.game && result.game.game_settings) {
+            const serverSettings = typeof result.game.game_settings === 'string'
+              ? JSON.parse(result.game.game_settings)
+              : result.game.game_settings;
+            applyTimingSettings(serverSettings);
+          }
+        })
+        .catch(err => console.warn('تعذر تحميل إعدادات الزمن من السيرفر:', err));
+    }
+  }
+  
+  // استرجاع إعدادات الجنود
+  if(savedSettings.infantry1) document.getElementById('infantry1').value = savedSettings.infantry1;
+  if(savedSettings.knight1) document.getElementById('knight1').value = savedSettings.knight1;
+  if(savedSettings.archer1) document.getElementById('archer1').value = savedSettings.archer1;
+  if(savedSettings.ship1) document.getElementById('ship1').value = savedSettings.ship1;
+  if(savedSettings.infantry2) document.getElementById('infantry2').value = savedSettings.infantry2;
+  if(savedSettings.knight2) document.getElementById('knight2').value = savedSettings.knight2;
+  if(savedSettings.archer2) document.getElementById('archer2').value = savedSettings.archer2;
+  if(savedSettings.ship2) document.getElementById('ship2').value = savedSettings.ship2;
+});
+
+// فتح نافذة التحميل عند الضغط على الزر
+if(mainLoadMapBtn) {
+  mainLoadMapBtn.addEventListener('click', function(e) {
+    // لا تفتح نافذة التحميل إذا كان الزر هو زر التحميل داخل المودال
+    if (e.target.closest('#load-selected-map')) return;
+    document.getElementById('map-loader-modal').classList.remove('hidden');
+    loadSavedMaps();
+    document.getElementById('map-preview-area').innerHTML = '<span class="text-[#b9b49d]">اختر خريطة للمعاينة</span>';
+    document.getElementById('load-selected-map').disabled = true;
+    selectedMapData = null;
+  });
+}
+// إغلاق النافذة
+const closeBtn = document.getElementById('close-map-loader');
+if(closeBtn) closeBtn.onclick = function() {
+  document.getElementById('map-loader-modal').classList.add('hidden');
+};
+
+// تحميل قائمة الخرائط ( تعديل حسب API السيرفر لديك)
+async function loadSavedMaps() {
+  const list = document.getElementById('saved-maps-list');
+  list.innerHTML = '<li class="text-[#b9b49d]">جاري التحميل...</li>';
+  try {
+    const res = await fetch('/api/maps/list');
+    const result = await res.json();
+    if (!result.success || !result.maps || !result.maps.length) {
+      list.innerHTML = '<li class="text-[#b9b49d]">لا توجد خرائط محفوظة</li>';
+      return;
+    }
+    
+    // فلترة الخرائط: إظهار فقط التي تم استخدام أداة الموقع عليها
+    const validMaps = result.maps.filter(map => map.hasLocations && !map.isDraft);
+    
+    if (!validMaps.length) {
+      list.innerHTML = '<li class="text-[#b9b49d]">لا توجد خرائط بها مواقع محددة</li>';
+      return;
+    }
+    
+    list.innerHTML = '';
+    validMaps.forEach(map => {
+      const li = document.createElement('li');
+      li.className = "bg-surface-darker rounded-lg p-3 cursor-pointer hover:bg-primary/10 flex items-center gap-2";
+      li.innerHTML = `
+        <span class="material-symbols-outlined text-primary">map</span>
+        <span class="font-bold text-white">${map.name || "بدون اسم"}</span>
+        ${map.isLocked ? '<span class="material-symbols-outlined text-red-400 ml-2">lock</span>' : ''}
+      `;
+      li.onclick = () => showMapPreview(map);
+      list.appendChild(li);
+    });
+  } catch (e) {
+    list.innerHTML = '<li class="text-red-400">تعذر تحميل الخرائط</li>';
+  }
+}
+
+let selectedMapData = null;
+let selectedMapName = '';
+let selectedMapFilename = '';
+let mapLoaded = false; // لتتبع حالة تحميل الخريطة
+
+// دالة للتحقق من تفعيل زر إنشاء المباراة
+function checkCreateButtonState() {
+  const roomNameInput = document.getElementById('room-name');
+  const createBtn = document.getElementById('create-match-btn');
+  
+  if (!roomNameInput || !createBtn) return;
+  
+  const roomName = roomNameInput.value.trim();
+  
+  // طباعة القيمة الفعلية لـ mapLoaded
+  console.log('🔍 فحص حالة زر إنشاء المباراة:');
+  console.log('   قيمة mapLoaded الفعلية:', mapLoaded, '(نوع:', typeof mapLoaded, ')');
+  console.log('   اسم الغرفة:', roomName ? '✅ مملوء' : '❌ فارغ', '(القيمة: "' + roomName + '")');
+  console.log('   الخريطة:', mapLoaded ? '✅ محملة' : '❌ غير محملة');
+  
+  const isValid = roomName !== '' && mapLoaded;
+  createBtn.disabled = !isValid;
+  
+  console.log('   الزر:', isValid ? '✅ مفعّل' : '❌ معطّل');
+}
+
+// دالة تحميل الخريطة الافتراضية 8X8_2026
+async function loadDefaultMap() {
+  try {
+    console.log('🗺️ جاري تحميل الخريطة الافتراضية 8X8_2026...');
+    
+    // البحث عن الخريطة 8X8_2026
+    const res = await fetch('/api/maps/list');
+    const result = await res.json();
+    
+    if (!result.success || !result.maps || !result.maps.length) {
+      console.warn('⚠️ لا توجد خرائط متاحة');
+      return;
+    }
+    
+    // البحث عن الخريطة التي تحتوي على 8X8_2026 في اسمها
+    const defaultMap = result.maps.find(map => 
+      map.filename && map.filename.includes('8X8_2026')
+    );
+    
+    if (!defaultMap) {
+      console.warn('⚠️ لم يتم العثور على الخريطة الافتراضية 8X8_2026');
+      return;
+    }
+    
+    // تعيين بيانات الخريطة
+    selectedMapData = defaultMap;
+    selectedMapName = defaultMap.name || '8X8_2026';
+    selectedMapFilename = defaultMap.filename;
+    mapLoaded = true;
+    
+    // تحديث زر تحميل الخريطة
+    if (mainLoadMapBtn) {
+      mainLoadMapBtn.querySelector('h3').textContent = 'تحميل خريطة: ' + selectedMapName;
+    }
+    
+    // حفظ في localStorage
+    const settings = JSON.parse(localStorage.getItem('matchSettings') || '{}');
+    settings.mapName = selectedMapFilename;
+    settings.mapDisplayName = selectedMapName;
+    localStorage.setItem('matchSettings', JSON.stringify(settings));
+    
+    console.log('✅ تم تحميل الخريطة الافتراضية:', selectedMapName);
+    console.log('✅ اسم الملف:', selectedMapFilename);
+    console.log('✅ تم تعيين mapLoaded =', mapLoaded);
+    
+    // فحص حالة زر إنشاء المباراة
+    checkCreateButtonState();
+    
+  } catch (error) {
+    console.error('❌ خطأ في تحميل الخريطة الافتراضية:', error);
+  }
+}
+
+// عرض البرفيو
+async function showMapPreview(map) {
+  selectedMapData = map;
+  selectedMapName = map.name || "بدون اسم";
+  selectedMapFilename = map.filename;
+  document.getElementById('load-selected-map').disabled = false;
+  try {
+    const res = await fetch(`/api/maps/load/${map.filename}`);
+    const mapData = await res.json();
+    // رسم شبكة مصغرة
+    const cellSize = 16;
+    let html = `<div style="display:inline-block;border:1px solid #393628;background:#181711;">`;
+    for(let row=0;row<mapData.height;row++){
+      html += `<div style="display:flex;">`;
+      for(let col=0;col<mapData.width;col++){
+        const cell = mapData.data.find(c=>c.row===row&&c.col===col);
+        let bg = (row+col)%2===0?'#23221b':'#393628';
+        let content = '';
+        if(cell){
+          if(cell.type==='water'){bg='#3366ff';if(cell.hasDock)content='⚓';}
+          else if(cell.type==='mountain'){bg='#6b4c3a';content='⛰';}
+        }
+        html += `<div style="width:${cellSize}px;height:${cellSize}px;background:${bg};border:1px solid #222;display:flex;align-items:center;justify-content:center;font-size:12px;">${content}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+    document.getElementById('map-preview-area').innerHTML = html;
+  } catch(e){
+    document.getElementById('map-preview-area').innerHTML = '<span class="text-red-400">تعذر عرض المعاينة</span>';
+  }
+}
+
+// تحميل الخريطة المختارة
+const loadBtn = document.getElementById('load-selected-map');
+if(loadBtn) loadBtn.onclick = function() {
+  if (!selectedMapData) return;
+  
+  // تحديث حالة تحميل الخريطة
+  mapLoaded = true;
+  console.log('✅ تم تحميل الخريطة:', selectedMapName);
+  console.log('✅ تم تعيين mapLoaded =', mapLoaded);
+  
+  // ضع اسم الخريطة في زر تحميل الخريطة الرئيسي
+  const mainLoadMapBtnUpdate = document.getElementById('load-map-btn');
+  if(mainLoadMapBtnUpdate) mainLoadMapBtnUpdate.querySelector('h3').textContent = 'تحميل خريطة: ' + selectedMapName;
+  document.getElementById('map-loader-modal').classList.add('hidden');
+  
+  // حفظ اسم الخريطة الكامل والاسم البسيط في localStorage
+  const settings = JSON.parse(localStorage.getItem('matchSettings') || '{}');
+  settings.mapName = selectedMapFilename;  // الاسم الكامل مع .json
+  settings.mapDisplayName = selectedMapName;  // الاسم البسيط للعرض
+  localStorage.setItem('matchSettings', JSON.stringify(settings));
+  
+  // فحص حالة زر إنشاء المباراة
+  checkCreateButtonState();
+};
+
+// زر إنشاء مباراة مع تحقق الشروط وحفظ الإعدادات
+const createMatchBtn = document.getElementById('create-match-btn');
+if(createMatchBtn) {
+  createMatchBtn.onclick = function(e) {
+    e.preventDefault();
+    
+    // التحقق من نمط اللعب
+    const gameModeInputs = document.querySelectorAll('input[name="game-mode"]');
+    let gameMode = '';
+    gameModeInputs.forEach(input => { if(input.checked) gameMode = input.value; });
+    
+    const armyDistributionInput = document.getElementById('army-distribution-time');
+    const turnTimeInput = document.getElementById('turn-time');
+    const armyDistributionTime = armyDistributionInput ? (armyDistributionInput.value || 2) : 2;
+    const turnTimeSeconds = turnTimeInput ? (turnTimeInput.value || 120) : 120;
+    localStorage.setItem('armyDistributionTime', armyDistributionTime);
+    localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
+    
+    // حفظ اللون قبل الانتقال
+    const playerColor = localStorage.getItem('playerPieceColor') || 'white';
+    
+    // 1- تحقق من وجود خريطة مختارة (نفضّل اسم الملف الحقيقي)
+    const mainLoadMapBtn = Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.includes('تحميل خريطة'));
+    let mapName = selectedMapFilename || '';
+    if(!mapName && mainLoadMapBtn && mainLoadMapBtn.querySelector('h3')) {
+      const txt = mainLoadMapBtn.querySelector('h3').textContent;
+      if(txt.includes(':')) mapName = txt.split(':')[1].trim();
+    }
+    const mapLoaded = !!mapName;
+    // 2- اسم المستخدم الحالي
+    const currentUser = localStorage.getItem('username') || 'لاعب مجهول';
+    // 3- الخصوصية
+    const privacyInputs = document.querySelectorAll('input[name="privacy"]');
+    let privacy = '';
+    privacyInputs.forEach(input => { if(input.checked) privacy = input.parentElement.textContent.trim(); });
+    
+    // الحصول على مستوى الصعوبة إن وجد
+    const difficultyInputs = document.querySelectorAll('input[name="difficulty"]');
+    let difficulty = '';
+    difficultyInputs.forEach(input => { if(input.checked) difficulty = input.value; });
+    
+    // استخدام القيم الافتراضية إذا لم تكمل
+    if(!mapName) mapName = 'default_map';
+    if(!privacy) privacy = 'عامة';
+    
+    // الحصول على طبيعة المعركة
+    const gameNatureInputs = document.querySelectorAll('input[name="game-nature"]');
+    let gameNature = 'traditional';
+    gameNatureInputs.forEach(input => { if(input.checked) gameNature = input.value; });
+    localStorage.setItem('gameNature', gameNature);
+    
+    const mapDisplayName = selectedMapName || (mapName ? mapName.replace('.json', '') : '');
+
+    console.log('🎨 لون المضيف المحفوظ حالياً:', playerColor);
+    console.log('📊 بيانات المضيف:');
+    console.log('  • اسم المستخدم:', currentUser);
+    console.log('  • اللون:', playerColor);
+    console.log('  • اسم الغرفة:', roomNameInput.value);
+    console.log('  • الخريطة:', mapName);
+
+    // إعدادات الجنود
+    const roomNameInput = document.getElementById('room-name');
+    // جمع قيم زمن المباراة من الفورم
+    const matchTimerInputs = document.querySelectorAll('input[name="match-timer"]');
+    let matchTimer = 'unlimited';
+    matchTimerInputs.forEach(input => { if(input.checked) matchTimer = input.value; });
+    
+    const matchTimeMinutesField = document.getElementById('match-time-minutes');
+    const matchTimeMinutes = matchTimeMinutesField && !matchTimeMinutesField.disabled ? parseInt(matchTimeMinutesField.value, 10) : null;
+    
+    const settings = {
+      roomName: roomNameInput.value,
+      mapName: mapName,
+      mapDisplayName: mapDisplayName,
+      privacy: privacy,
+      gameMode: gameMode,
+      gameNature: gameNature,
+      difficulty: difficulty,
+      matchTimer: matchTimer,
+      matchTimeMinutes: matchTimeMinutes,
+      infantry1: document.getElementById('infantry1').value,
+      knight1: document.getElementById('knight1').value,
+      archer1: document.getElementById('archer1').value,
+      wazir1: document.getElementById('wazir1').value,
+      ship1: document.getElementById('ship1').value,
+      infantry2: document.getElementById('infantry2').value,
+      knight2: document.getElementById('knight2').value,
+      archer2: document.getElementById('archer2').value,
+      wazir2: document.getElementById('wazir2').value,
+      ship2: document.getElementById('ship2').value,
+      armyDistributionTime: parseInt(armyDistributionTime, 10),
+      turnTimeSeconds: parseInt(turnTimeSeconds, 10)
+    };
+    // حفظ الإعدادات في localStorage (شامل: خريطة + إعدادات + غرفة)
+    localStorage.setItem('matchSettings', JSON.stringify(settings));
+    // حفظ بيانات اللاعبين (اسم المستخدم)
+    localStorage.setItem('waitingRoomUsers', JSON.stringify([currentUser]));
+    
+    // إذا كان الوضع "ضد الكمبيوتر" - اذهب مباشرة إلى مرحلة توزيع الجيش (شرط: تحميل خريطة)
+    if(gameMode === 'pvc') {
+      if(!mapLoaded || mapName === 'default_map') {
+        alert('يرجى تحميل خريطة قبل بدء المباراة');
+        return;
+      }
+
+      // ✅ تأكيد إنشاء gameId خاص بمباريات الكمبيوتر لتجنّب أي تسرب من مباراة سابقة
+      const existingGameId = localStorage.getItem('gameId');
+      if(!existingGameId || !String(existingGameId).startsWith('computer_game_')) {
+        const pvcGameId = `computer_game_${Date.now()}`;
+        localStorage.setItem('gameId', pvcGameId);
+        console.log('✅ تم إنشاء gameId جديد لوضع الكمبيوتر:', pvcGameId);
+      }
+      localStorage.setItem('gameMode', 'pvc');
+      localStorage.setItem('isGuestUser', 'false');
+      
+      // حفظ الأزمنة قبل الانتقال
+      localStorage.setItem('armyDistributionTime', armyDistributionTime);
+      localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
+      localStorage.setItem('mapName', mapName);
+      sessionStorage.setItem('mapName', mapName);
+      sessionStorage.setItem('armyDistributionTime', armyDistributionTime);
+      sessionStorage.setItem('turnTimeSeconds', turnTimeSeconds);
+      console.log('✅ Saving mapName:', mapName);
+      console.log('✅ Saving mapDisplayName:', mapDisplayName);
+      console.log('✅ Saving armyDistributionTime:', armyDistributionTime);
+      console.log('✅ Saving turnTimeSeconds:', turnTimeSeconds);
+      
+      setTimeout(() => {
+        window.location.href = 'مرحلة توزيع الجيش.html';
+      }, 300);
+      return;
+    }
+    
+    // بخلاف ذلك - أكمل مع إنشاء المباراة متعددة اللاعبين
+    // إنشاء المباراة في قاعدة البيانات
+    const API_URL = `${window.location.origin}/api`;
+    const userId = localStorage.getItem('userId');
+    
+    // احصل على لون الوحدات المختار
+    const pieceColorInput = document.querySelector('input[name="piece-color"]:checked');
+    const hostColor = pieceColorInput ? pieceColorInput.value : 'white';
+    const guestColor = hostColor === 'white' ? 'black' : 'white'; // لون الضيف عكس لون المضيف
+    
+    // التحقق من وجود مباراة بطولة (من URL فقط)
+    const params = new URLSearchParams(window.location.search);
+    const isTournamentMatch = params.get('isTournamentMatch') === 'true';
+    const tournamentMatchStr = isTournamentMatch ? localStorage.getItem('tournamentMatch') : null;
+
+    if (!isTournamentMatch) {
+      localStorage.removeItem('tournamentMatch');
+    }
+
+    if (isTournamentMatch) {
+      let storedTournamentMatch = {};
+      try {
+        storedTournamentMatch = JSON.parse(tournamentMatchStr || '{}');
+      } catch (e) {
+        storedTournamentMatch = {};
+      }
+
+      const tournamentId = params.get('tournamentId') || storedTournamentMatch.tournamentId || null;
+      const matchNumber = parseInt(params.get('matchNumber') || storedTournamentMatch.matchNumber || '0', 10) || null;
+      const player1Id = parseInt(params.get('player1Id') || storedTournamentMatch.player1Id || '0', 10) || null;
+      const player2Id = parseInt(params.get('player2Id') || storedTournamentMatch.player2Id || '0', 10) || null;
+      const player1Name = params.get('player1Name') ? decodeURIComponent(params.get('player1Name')) : (storedTournamentMatch.player1Name || null);
+      const player2Name = params.get('player2Name') ? decodeURIComponent(params.get('player2Name')) : (storedTournamentMatch.player2Name || null);
+
+      settings.tournamentCreated = true;
+      settings.isTournamentMatch = true;
+      settings.tournamentAdminId = parseInt(userId, 10) || null;
+      settings.tournamentAdminName = localStorage.getItem('username') || currentUser || 'مدير البطولة';
+      settings.tournamentAdminLevel = parseInt(localStorage.getItem('level') || '0', 10) || null;
+      settings.tournamentId = tournamentId;
+      settings.matchNumber = matchNumber;
+      settings.player1Id = player1Id;
+      settings.player2Id = player2Id;
+      settings.player1Name = player1Name;
+      settings.player2Name = player2Name;
+    }
+    
+    // إذا كانت مباراة بطولة، استخدم player1Id كمضيف
+    let hostId = userId;
+    if (isTournamentMatch) {
+      const player1Id = params.get('player1Id');
+      if (player1Id) {
+        hostId = player1Id;
+      }
+    }
+    
+    if (hostId) {
+      fetch(`${API_URL}/games/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_id: hostId,
+          host_color: hostColor,
+          guest_color: guestColor,
+          game_name: roomNameInput.value || 'معركة جديدة',
+          map_name: mapName,
+          map_size: 'medium',
+          game_settings: settings
+        })
+      })
+      .then(res => res.json())
+      .then(result => {
+        // حفظ زمن توزيع خطة الجيش قبل الانتقال
+        localStorage.setItem('armyDistributionTime', armyDistributionTime);
+        localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
+        console.log('Saving armyDistributionTime:', armyDistributionTime);
+        console.log('Saving turnTimeSeconds:', turnTimeSeconds);
+        console.log('نتيجة إنشاء المباراة:', result);
+        
+        if (result.success) {
+          localStorage.setItem('gameId', result.gameId);
+          console.log('تم إنشاء المباراة برقم:', result.gameId);
+          
+          // إذا كانت مباراة بطولة، أرسل دعوات تلقائية
+          const tournamentMatchStr = localStorage.getItem('tournamentMatch');
+          if (tournamentMatchStr && isTournamentMatch) {
+            try {
+              const storedTournamentData = JSON.parse(tournamentMatchStr || '{}');
+              const player1Id = parseInt(params.get('player1Id') || storedTournamentData.player1Id || '0', 10) || null;
+              const player2Id = parseInt(params.get('player2Id') || storedTournamentData.player2Id || '0', 10) || null;
+              const hostIdNum = parseInt(hostId, 10) || null;
+              const fromUserIdNum = parseInt(userId, 10) || null;
+
+              const targetInvitees = [player1Id, player2Id].filter((id) => {
+                if (!id) return false;
+                if (hostIdNum && id === hostIdNum) return false;
+                if (fromUserIdNum && id === fromUserIdNum) return false;
+                return true;
+              });
+
+              targetInvitees.forEach((targetUserId) => {
+                fetch(`${API_URL}/games/${result.gameId}/invite-player`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    from_user_id: fromUserIdNum || userId,
+                    to_user_id: targetUserId
+                  })
+                })
+                .then(res => res.json())
+                .then(inviteRes => {
+                  if (inviteRes && inviteRes.success) {
+                    console.log(`✅ تم إرسال دعوة للاعب ${targetUserId}`);
+                  } else {
+                    console.warn(`⚠️ لم تُرسل الدعوة للاعب ${targetUserId}:`, inviteRes?.message);
+                  }
+                })
+                .catch(err => console.error(`❌ خطأ في إرسال دعوة للاعب ${targetUserId}:`, err));
+              });
+            } catch (parseErr) {
+              console.error('خطأ في معالجة بيانات البطولة:', parseErr);
+            }
+          }
+        } else {
+          console.error('فشل إنشاء المباراة:', result.message);
+        }
+        // الانتقال إلى صفحة غرفة الانتظار في جميع الحالات
+        // إذا لم يكن هناك gameId، استخدم مفتاح مؤقت
+        const gameId = localStorage.getItem('gameId') || ('game_' + Date.now());
+        if (!localStorage.getItem('gameId')) {
+          localStorage.setItem('gameId', gameId);
+        }
+        localStorage.setItem('adminMode_' + gameId, 'true');
+        console.log('✅ حفظ adminMode_' + gameId);
+        setTimeout(() => {
+          window.location.href = 'غرفة الانتظار.html';
+        }, 500);
+      })
+      .catch(err => {
+        console.error('خطأ في إنشاء المعركة:', err);
+        // الانتقال حتى لو حدث خطأ
+        // حفظ زمن توزيع خطة الجيش قبل الانتقال
+        localStorage.setItem('armyDistributionTime', armyDistributionTime);
+        localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
+        
+        setTimeout(() => {
+          window.location.href = 'غرفة الانتظار.html';
+        }, 500);
+      });
+    } else {
+      console.warn('لا يوجد userId');
+      // الانتقال إلى صفحة غرفة الانتظار
+      window.location.href = 'غرفة الانتظار.html';
+    }
+  };
+}
+
+// دالة لقراءة وتطبيق معاملات البطولة من الـ URL
+function loadTournamentMatchParameters() {
+    const params = new URLSearchParams(window.location.search);
+    
+    // قراءة معاملات البطولة
+    const tournamentId = params.get('tournamentId');
+    const tournamentName = params.get('tournamentName') ? decodeURIComponent(params.get('tournamentName')) : null;
+    const player1Name = params.get('player1Name') ? decodeURIComponent(params.get('player1Name')) : null;
+    const player2Name = params.get('player2Name') ? decodeURIComponent(params.get('player2Name')) : null;
+    const adminName = params.get('adminName') ? decodeURIComponent(params.get('adminName')) : null;
+    const isTournamentMatch = params.get('isTournamentMatch') === 'true';
+    
+    if (!isTournamentMatch) {
+      // تنظيف أي بقايا من جلسة بطولة قديمة حتى لا تؤثر على المباريات العادية
+      localStorage.removeItem('tournamentMatch');
+      return; // إذا لم تكن مباراة بطولة، لا تفعل شيء
+    }
+    
+    console.log('🏆 تحميل معاملات البطولة:', {
+        tournamentId,
+        tournamentName,
+        player1Name,
+        player2Name,
+        adminName
+    });
+    
+    // عرض اسم المدير بجوار العنوان
+    if (adminName) {
+        const adminNameDisplay = document.getElementById('admin-name-display');
+        if (adminNameDisplay) {
+            adminNameDisplay.textContent = adminName;
+        }
+    }
+    
+    // تعبئة اسم الغرفة
+    if (tournamentName) {
+        const roomNameInput = document.getElementById('room-name');
+        if (roomNameInput) {
+            roomNameInput.value = tournamentName;
+            roomNameInput.readOnly = true; // منع التعديل
+        }
+    }
+    
+    // تعبئة حقل عدد اللاعبين مع أسماء اللاعبين
+    if (player1Name && player2Name) {
+        const playerCountDisplay = document.getElementById('player-count-display');
+        if (playerCountDisplay) {
+            playerCountDisplay.innerHTML = `<span class="text-white text-center font-bold">${player1Name} ضد ${player2Name}</span>`;
+        }
+    }
+    
+    // تعديل نمط اللعب إلى PvP (إجباري للمباراة في البطولة)
+    const pvpInput = document.querySelector('input[name="game-mode"][value="pvp"]');
+    if (pvpInput) {
+        pvpInput.checked = true;
+        pvpInput.dispatchEvent(new Event('change'));
+    }
+    
+    // تعديل الخصوصية إلى "خاصة" (لأن البطولة خاصة)
+    const privacyInputs = document.querySelectorAll('input[name="privacy"]');
+    if (privacyInputs.length > 1) {
+        privacyInputs[1].checked = true; // الخيار الثاني هو "خاصة"
+        privacyInputs[1].dispatchEvent(new Event('change'));
+    }
+    
+    // تعيين لون الوحدات تلقائياً: اللاعب الأول (أبيض/مضيف), اللاعب الثاني (أسود/ضيف)
+    const whiteColorInput = document.querySelector('input[name="piece-color"][value="white"]');
+    if (whiteColorInput) {
+        whiteColorInput.checked = true;
+        whiteColorInput.dispatchEvent(new Event('change'));
+    }
+    
+    // حفظ معاملات البطولة في localStorage لاستخدامها لاحقاً
+    localStorage.setItem('tournamentMatch', JSON.stringify({
+        tournamentId,
+        tournamentName,
+        player1Name,
+        player2Name,
+        adminName
+    }));
+}
+
+// استدعاء الدالة عند تحميل الصفحة
+window.addEventListener('DOMContentLoaded', loadTournamentMatchParameters);
+
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const cameFromProfileParam = params.get('source') === 'profile';
+  const cameFromProfileReferrer = document.referrer.includes('ملف اللاعب الشخصي.html');
+  const cameFromTournamentDetailsParam = params.get('source') === 'tournament-details' || params.get('from') === 'tournament-details';
+  const cameFromTournamentDetailsReferrer = document.referrer.includes('تفاصيل البطولة') || document.referrer.includes('%D8%AA%D9%81%D8%A7%D8%B5%D9%8A%D9%84');
+
+  if (cameFromProfileParam || cameFromProfileReferrer) {
+    const adminTitleLabel = document.getElementById('admin-title-label');
+    if (adminTitleLabel) {
+      adminTitleLabel.style.display = 'none';
+    }
+  }
+
+  if (cameFromTournamentDetailsParam || cameFromTournamentDetailsReferrer) {
+    const pvpInput = document.querySelector('input[name="game-mode"][value="pvp"]');
+    const pvcInput = document.querySelector('input[name="game-mode"][value="pvc"]');
+
+    if (pvpInput) {
+      pvpInput.checked = true;
+      pvpInput.dispatchEvent(new Event('change'));
+    }
+
+    if (pvcInput) {
+      pvcInput.checked = false;
+      pvcInput.disabled = true;
+      const pvcLabel = pvcInput.closest('label');
+      if (pvcLabel) {
+        pvcLabel.style.opacity = '0.5';
+        pvcLabel.style.cursor = 'not-allowed';
+        pvcLabel.style.pointerEvents = 'none';
+      }
+    }
+
+    localStorage.setItem('gameMode', 'pvp');
+    console.log('🏆 تم تعطيل خيار ضد الكمبيوتر عند الدخول من تفاصيل البطولة');
+
+    const advancedTroopsBtn = document.getElementById('advanced-settings-btn-troops');
+    const advancedTroopsPanel = document.getElementById('advanced-settings-panel');
+    if (advancedTroopsBtn) {
+      advancedTroopsBtn.style.display = 'none';
+    }
+    if (advancedTroopsPanel) {
+      advancedTroopsPanel.classList.add('hidden');
+    }
+  }
+});
+
+// تعطيل الأزرار للاعب العادي
+document.addEventListener('DOMContentLoaded', () => {
+  const userType = localStorage.getItem('userType');
+  
+  if (userType === 'player') {
+    // تعطيل زر إنشاء خريطة
+    const createMapBtn = document.getElementById('create-map-btn');
+    if (createMapBtn) {
+      createMapBtn.disabled = true;
+      createMapBtn.style.opacity = '0.5';
+      createMapBtn.style.cursor = 'not-allowed';
+      createMapBtn.onclick = (e) => {
+        e.preventDefault();
+        alert('⚠️ فقط المديرون يمكنهم إنشاء خريطة جديدة');
+      };
+    }
+    
+    // تعطيل خيار متقدمة
+    const advancedLabel = document.getElementById('advanced-label');
+    const advancedInput = document.getElementById('advanced-game-nature');
+    
+    if (advancedLabel) {
+      advancedLabel.style.opacity = '0.5';
+      advancedLabel.style.cursor = 'not-allowed';
+      advancedLabel.style.pointerEvents = 'none';
+    }
+    
+    if (advancedInput) {
+      advancedInput.disabled = true;
+    }
+  }
+});
+</script>

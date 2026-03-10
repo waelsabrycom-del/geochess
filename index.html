@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html class="dark" dir="rtl" lang="ar">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>الشطرنج الجغرافي - الرئيسية</title>
+<link href="assets/local/fonts/local-fonts.css" rel="stylesheet"/>
+    <script src="assets/local/tailwind-cdn.js"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1152d4",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Work Sans", "Noto Sans Arabic", "sans-serif"],
+                        "body": ["Noto Sans Arabic", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111318; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b4354; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1152d4; 
+        }
+        input:focus {
+            box-shadow: none !important;
+        }
+    </style>
+</head>
+<body class="bg-background-dark text-white font-body overflow-x-hidden">
+<div class="relative flex min-h-screen w-full flex-col overflow-hidden">
+    <!-- Background -->
+    <div class="absolute inset-0 z-0">
+        <div class="absolute inset-0 bg-[#101622]/80 z-10"></div>
+        <div class="h-full w-full bg-cover bg-center bg-no-repeat" style='background-image: url("assets/local/images/hero-bg.jpg");'></div>
+    </div>
+
+    <!-- Navigation -->
+    <header class="relative z-20 flex items-center justify-between whitespace-nowrap border-b border-[#282e39] bg-[#111318]/90 backdrop-blur-md px-10 py-4">
+        <div class="flex items-center gap-4">
+            <div class="size-8 text-primary">
+                <span class="material-symbols-outlined text-4xl">castle</span>
+            </div>
+            <h1 class="text-white text-2xl font-black tracking-[-0.015em] font-display">الشطرنج الجغرافي</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <nav class="hidden md:flex gap-8">
+                <a class="text-white hover:text-primary transition-colors text-sm font-bold" href="#features">الميزات</a>
+                <a class="text-white hover:text-primary transition-colors text-sm font-bold" href="#about">حول اللعبة</a>
+                <a class="text-white hover:text-primary transition-colors text-sm font-bold" href="#faq">الأسئلة</a>
+            </nav>
+            <button class="flex items-center justify-center rounded-lg h-10 px-5 bg-primary hover:bg-blue-700 text-white text-sm font-bold transition-colors" onclick="window.location.href='تسجيل دخول.html'">
+                <span>دخول</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="relative z-20 flex-1 flex flex-col items-center justify-center p-4">
+        <!-- Hero Section -->
+        <section class="text-center mb-20 mt-10">
+            <div class="mb-6">
+                <span class="material-symbols-outlined text-8xl text-primary">military_tech</span>
+            </div>
+            <h2 class="text-5xl md:text-6xl font-black mb-4 font-display leading-tight">
+                كن قائد أسطورة<br/>على الخريطة
+            </h2>
+            <p class="text-[#9da6b9] text-xl mb-8 max-w-2xl mx-auto">
+                استراتيجية عميقة، حروب جغرافية، ولاعبون من حول العالم. انضم إلى معركة الشطرنج الجغرافي الأكبر.
+            </p>
+            <div class="flex gap-4 justify-center flex-wrap">
+                <button class="flex items-center gap-2 rounded-lg h-12 px-8 bg-primary hover:bg-blue-700 text-white font-bold transition-all shadow-[0_0_15px_rgba(17,82,212,0.4)]" onclick="window.location.href='إنشاء حساب جديد.html'">
+                    <span class="material-symbols-outlined">person_add</span>
+                    <span>ابدأ الآن</span>
+                </button>
+                <button class="flex items-center gap-2 rounded-lg h-12 px-8 border border-primary text-primary hover:bg-primary hover:text-white transition-all" onclick="window.location.href='تسجيل دخول.html'">
+                    <span class="material-symbols-outlined">login</span>
+                    <span>دخول</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="grid md:grid-cols-3 gap-6 max-w-5xl mb-20 w-full">
+            <div class="bg-[#1c1f27] border border-[#3b4354] rounded-lg p-6 hover:border-primary transition-colors">
+                <span class="material-symbols-outlined text-4xl text-primary mb-3">public</span>
+                <h3 class="text-xl font-bold mb-2">خرائط متنوعة</h3>
+                <p class="text-[#9da6b9] text-sm">صحاري شاسعة وجبال عالية وسواحل استراتيجية</p>
+            </div>
+            <div class="bg-[#1c1f27] border border-[#3b4354] rounded-lg p-6 hover:border-primary transition-colors">
+                <span class="material-symbols-outlined text-4xl text-primary mb-3">groups</span>
+                <h3 class="text-xl font-bold mb-2">لاعبون حول العالم</h3>
+                <p class="text-[#9da6b9] text-sm">تنافس مع أفضل الاستراتيجيين والقادة الماهرين</p>
+            </div>
+            <div class="bg-[#1c1f27] border border-[#3b4354] rounded-lg p-6 hover:border-primary transition-colors">
+                <span class="material-symbols-outlined text-4xl text-primary mb-3">trending_up</span>
+                <h3 class="text-xl font-bold mb-2">نظام رتب متقدم</h3>
+                <p class="text-[#9da6b9] text-sm">من مبتدئ إلى ماستر مع شارات وإنجازات</p>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="bg-[#1c1f27] border border-[#3b4354] rounded-lg p-8 max-w-5xl w-full mb-20">
+            <div class="grid md:grid-cols-4 gap-6 text-center">
+                <div>
+                    <div class="text-3xl font-bold text-primary mb-2">50K+</div>
+                    <p class="text-[#9da6b9]">لاعب نشط</p>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-primary mb-2">500+</div>
+                    <p class="text-[#9da6b9]">خريطة متنوعة</p>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-primary mb-2">24/7</div>
+                    <p class="text-[#9da6b9]">مباريات جارية</p>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-primary mb-2">100+</div>
+                    <p class="text-[#9da6b9]">دول مشاركة</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="max-w-3xl text-center mb-20">
+            <h3 class="text-3xl font-bold mb-6">عن اللعبة</h3>
+            <p class="text-[#9da6b9] mb-4">
+                الشطرنج الجغرافي يجمع بين عمق الاستراتيجية الكلاسيكية مع تعقيد الحروب الجغرافية. 
+                تحكم بجيشك، تحكم بالخريطة، وصبح قائداً أسطورياً.
+            </p>
+            <p class="text-[#9da6b9]">
+                كل مباراة قصة جديدة، كل قرار مهم، وكل خطوة تغير مسار الحرب.
+            </p>
+        </section>
+
+        <!-- FAQ Section -->
+        <section id="faq" class="max-w-3xl w-full mb-20">
+            <h3 class="text-3xl font-bold mb-8 text-center">الأسئلة الشائعة</h3>
+            <div class="space-y-4">
+                <details class="bg-[#1c1f27] border border-[#3b4354] rounded-lg p-4 cursor-pointer group">
+                    <summary class="flex items-center gap-2 font-bold">
+                        <span class="material-symbols-outlined">add</span>
+                        هل اللعبة مجانية؟
+                    </summary>
+                    <p class="text-[#9da6b9] mt-3 mr-8">
+                        نعم! اللعبة مجانية بالكامل. يمكنك لعب عدد غير محدود من المباريات.
+                    </p>
+                </details>
+                <details class="bg-[#1c1f27] border border-[#3b4354] rounded-lg p-4 cursor-pointer group">
+                    <summary class="flex items-center gap-2 font-bold">
+                        <span class="material-symbols-outlined">add</span>
+                        كم وقت تستغرق المباراة الواحدة؟
+                    </summary>
+                    <p class="text-[#9da6b9] mt-3 mr-8">
+                        المباريات عادة ما تستغرق 15-45 دقيقة حسب مستوى التعقيد والخريطة المختارة.
+                    </p>
+                </details>
+                <details class="bg-[#1c1f27] border border-[#3b4354] rounded-lg p-4 cursor-pointer group">
+                    <summary class="flex items-center gap-2 font-bold">
+                        <span class="material-symbols-outlined">add</span>
+                        هل يمكنني لعب ضد الكمبيوتر؟
+                    </summary>
+                    <p class="text-[#9da6b9] mt-3 mr-8">
+                        حالياً اللعبة تركز على اللعب بين اللاعبين، لكن خوارزمية AI قادمة قريباً.
+                    </p>
+                </details>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-20 border-t border-[#282e39] bg-[#111318]/90 p-6 text-center text-[#9da6b9] text-sm">
+        <p>© 2024 الشطرنج الجغرافي. جميع الحقوق محفوظة.</p>
+        <p class="mt-2">📧 للتواصل: support@geographical-chess.com</p>
+    </footer>
+</div>
+
+<script src="zoom.js"></script>
+<script>
+    // Redirect if logged in
+    window.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            // Show option to go to profile
+            const header = document.querySelector('header');
+            const btn = header.querySelector('button');
+            btn.textContent = 'اذهب للملف الشخصي';
+            btn.onclick = () => window.location.href = 'ملف اللاعب الشخصي.html';
+        }
+        // تهيئة نظام الزوم
+        initializeZoom('main');
+    });
+</script>
+</body>
+</html>
