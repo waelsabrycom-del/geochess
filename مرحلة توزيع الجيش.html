@@ -6765,30 +6765,57 @@ function renderMapGrid(mapData) {
   // بناء مجموعة المربعات لكل موقع
   const locationSquares = {};
   
-  // ✅ إذا كانت الخريطة لا تحتوي على مواقع محددة، نقسم الخريطة إلى نصين
+  // ✅ إذا لم تكن مواقع الخريطة موجودة كـ mapData.locations
+  // حاول أولاً استخراجها من cell.locationNum (الشكل الشائع في ملفات الخرائط الحالية)
   if(totalLocations === 0) {
-    console.warn('⚠️ الخريطة لا تحتوي على بيانات مواقع محددة. سيتم تعيين المواقع تلقائياً...');
-    
-    const totalCells = width * height;
-    const halfPoint = Math.floor(totalCells / 2);
-    
-    // الموقع 1: النصف الأول من الخريطة
-    locationSquares[1] = [];
-    for(let i = 0; i < halfPoint; i++) {
-      locationSquares[1].push(i);
+    const extractedFromCells = {};
+    let extractedLocationsCount = 0;
+
+    cells.forEach((cell) => {
+      const locNum = parseInt(cell.locationNum, 10);
+      if(Number.isFinite(locNum) && locNum > 0) {
+        if(!extractedFromCells[locNum]) extractedFromCells[locNum] = [];
+        extractedFromCells[locNum].push((cell.row * width) + cell.col);
+      }
+    });
+
+    const extractedKeys = Object.keys(extractedFromCells)
+      .map(k => parseInt(k, 10))
+      .filter(k => Number.isFinite(k) && k > 0)
+      .sort((a, b) => a - b);
+
+    if(extractedKeys.length >= 2) {
+      extractedLocationsCount = extractedKeys.length;
+      extractedKeys.forEach((locNum) => {
+        locationSquares[locNum] = extractedFromCells[locNum] || [];
+      });
+      totalLocations = extractedLocationsCount;
+
+      console.log(`✓ تم استخراج ${totalLocations} مواقع من cell.locationNum`);
+    } else {
+      console.warn('⚠️ الخريطة لا تحتوي على بيانات مواقع كافية. سيتم تعيين المواقع تلقائياً...');
+
+      const totalCells = width * height;
+      const halfPoint = Math.floor(totalCells / 2);
+
+      // الموقع 1: النصف الأول من الخريطة
+      locationSquares[1] = [];
+      for(let i = 0; i < halfPoint; i++) {
+        locationSquares[1].push(i);
+      }
+
+      // الموقع 2: النصف الثاني من الخريطة
+      locationSquares[2] = [];
+      for(let i = halfPoint; i < totalCells; i++) {
+        locationSquares[2].push(i);
+      }
+
+      totalLocations = 2;
+
+      console.log(`✓ تم تقسيم الخريطة تلقائياً:`);
+      console.log(`  • الموقع 1: الخلايا 0 إلى ${halfPoint - 1}`);
+      console.log(`  • الموقع 2: الخلايا ${halfPoint} إلى ${totalCells - 1}`);
     }
-    
-    // الموقع 2: النصف الثاني من الخريطة
-    locationSquares[2] = [];
-    for(let i = halfPoint; i < totalCells; i++) {
-      locationSquares[2].push(i);
-    }
-    
-    totalLocations = 2;
-    
-    console.log(`✓ تم تقسيم الخريطة تلقائياً:`);
-    console.log(`  • الموقع 1: الخلايا 0 إلى ${halfPoint - 1}`);
-    console.log(`  • الموقع 2: الخلايا ${halfPoint} إلى ${totalCells - 1}`);
   } else {
     // نسخ بيانات المواقع من الخريطة
     for(let locNum = 1; locNum <= totalLocations; locNum++) {
