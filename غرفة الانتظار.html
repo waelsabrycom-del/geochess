@@ -532,14 +532,29 @@
 // معالج رابط الملف الشخصي - حذف اللعبة إذا كان المضيف يخرج
 window.addEventListener('DOMContentLoaded', function() {
   const currentUserId = parseInt(localStorage.getItem('userId'), 10);
-  const gameId = localStorage.getItem('gameId');
+  const urlParams = new URLSearchParams(window.location.search);
+  const gameIdFromUrl = urlParams.get('gameId');
+  const gameId = localStorage.getItem('gameId') || sessionStorage.getItem('gameId') || gameIdFromUrl;
   const API_URL = `${window.location.origin}/api`;
+
+  // مزامنة gameId إذا أتى من رابط المشاركة
+  if (gameIdFromUrl && !localStorage.getItem('gameId')) {
+    localStorage.setItem('gameId', gameIdFromUrl);
+  }
+  if (gameIdFromUrl && !sessionStorage.getItem('gameId')) {
+    sessionStorage.setItem('gameId', gameIdFromUrl);
+  }
   
   // البحث عن رابط الملف الشخصي في الشريط العلوي
   const profileLink = document.querySelector('a[href="ملف اللاعب الشخصي.html"]');
   
-  if(!profileLink || !gameId) {
-    console.log('⚠️ لم يتم العثور على رابط الملف الشخصي أو gameId مفقود');
+  if(!profileLink) {
+    console.log('ℹ️ لم يتم العثور على رابط الملف الشخصي');
+    return;
+  }
+
+  if(!gameId) {
+    console.log('ℹ️ gameId غير متوفر حالياً - سيتم الانتقال بدون حذف مباراة');
     return;
   }
   
@@ -598,14 +613,29 @@ window.addEventListener('DOMContentLoaded', function() {
 // معالج زر الرئيسية - حذف اللعبة إذا كان المضيف يخرج
 window.addEventListener('DOMContentLoaded', function() {
   const currentUserId = parseInt(localStorage.getItem('userId'), 10);
-  const gameId = localStorage.getItem('gameId');
+  const urlParams = new URLSearchParams(window.location.search);
+  const gameIdFromUrl = urlParams.get('gameId');
+  const gameId = localStorage.getItem('gameId') || sessionStorage.getItem('gameId') || gameIdFromUrl;
   const API_URL = `${window.location.origin}/api`;
+
+  // مزامنة gameId إذا أتى من رابط المشاركة
+  if (gameIdFromUrl && !localStorage.getItem('gameId')) {
+    localStorage.setItem('gameId', gameIdFromUrl);
+  }
+  if (gameIdFromUrl && !sessionStorage.getItem('gameId')) {
+    sessionStorage.setItem('gameId', gameIdFromUrl);
+  }
   
   // البحث عن رابط الرئيسية في الشريط العلوي
   const homeLink = document.querySelector('nav a[href="index.html"]');
   
-  if(!homeLink || !gameId) {
-    console.log('⚠️ لم يتم العثور على رابط الرئيسية أو gameId مفقود');
+  if(!homeLink) {
+    console.log('ℹ️ لم يتم العثور على رابط الرئيسية');
+    return;
+  }
+
+  if(!gameId) {
+    console.log('ℹ️ gameId غير متوفر حالياً - سيتم الانتقال بدون حذف مباراة');
     return;
   }
   
