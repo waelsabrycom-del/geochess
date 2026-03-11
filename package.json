@@ -4,7 +4,7 @@
   "description": "لعبة الشطرنج الجغرافي - نظام إدارة المباريات",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "npm run migrate:pg && node server.js",
     "start:advanced": "node advanced-startup.js",
     "start:monitor": "node server-monitor.js",
     "optimize": "node database-optimizer.js",
