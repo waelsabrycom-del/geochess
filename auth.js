@@ -511,7 +511,21 @@ router.post('/update-avatar', verifyToken, upload.single('avatar'), async (req, 
 
     if (isPostgresEnabled) {
         try {
-            await pgQuery(`UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`, [avatarPath, userId]);
+            const updateResult = await pgQuery(
+                `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2 RETURNING id`,
+                [avatarPath, userId]
+            );
+
+            if ((updateResult.rowCount || 0) === 0) {
+                fs.unlink(req.file.path, (unlinkErr) => {
+                    if (unlinkErr) console.error('خطأ في حذف الملف:', unlinkErr);
+                });
+                return res.status(404).json({
+                    success: false,
+                    message: 'المستخدم غير موجود في PostgreSQL'
+                });
+            }
+
             return res.json({
                 success: true,
                 message: 'تم تحديث الصورة بنجاح',
@@ -542,6 +556,16 @@ router.post('/update-avatar', verifyToken, upload.single('avatar'), async (req, 
                 return res.status(500).json({
                     success: false,
                     message: 'خطأ في تحديث الصورة'
+                });
+            }
+
+            if ((this.changes || 0) === 0) {
+                fs.unlink(req.file.path, (unlinkErr) => {
+                    if (unlinkErr) console.error('خطأ في حذف الملف:', unlinkErr);
+                });
+                return res.status(404).json({
+                    success: false,
+                    message: 'المستخدم غير موجود في SQLite'
                 });
             }
 
