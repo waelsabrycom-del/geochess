@@ -878,7 +878,7 @@ window.addEventListener('DOMContentLoaded', function() {
             console.warn('⚠️ فشل إنشاء المباراة:', result.message);
           }
           setTimeout(() => {
-            window.location.href = 'غرفة الانتظار.html';
+            window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(result.gameId)}`;
           }, 500);
         })
         .catch(err => {
@@ -890,7 +890,7 @@ window.addEventListener('DOMContentLoaded', function() {
           localStorage.setItem('adminMode_' + gameId, 'true');
           console.log('✅ حفظ adminMode_' + gameId + ' (في حالة الخطأ)');
           setTimeout(() => {
-            window.location.href = 'غرفة الانتظار.html';
+            window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(gameId)}`;
           }, 500);
         });
       } else {
@@ -902,7 +902,7 @@ window.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('adminMode_' + gameId, 'true');
         console.log('✅ حفظ adminMode_' + gameId);
         setTimeout(() => {
-          window.location.href = 'غرفة الانتظار.html';
+          window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(gameId)}`;
         }, 500);
       }
     };
@@ -1591,7 +1591,7 @@ if(createMatchBtn) {
         localStorage.setItem('adminMode_' + gameId, 'true');
         console.log('✅ حفظ adminMode_' + gameId);
         setTimeout(() => {
-          window.location.href = 'غرفة الانتظار.html';
+          window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(gameId)}`;
         }, 500);
       })
       .catch(err => {
@@ -1602,7 +1602,7 @@ if(createMatchBtn) {
         localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
         
         setTimeout(() => {
-          window.location.href = 'غرفة الانتظار.html';
+          window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(gameId)}`;
         }, 500);
       });
     } else {
