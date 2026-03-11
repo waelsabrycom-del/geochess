@@ -7571,6 +7571,15 @@ function decrementUnitCount(unitType) {
   
   // استخدم العدد المعروض أو المحفوظ
   let current = currentDisplayCount > 0 ? currentDisplayCount : (saved[unitType] || 0);
+
+  // لا تسمح بالنزول تحت الصفر
+  if(current <= 0) {
+    saved[unitType] = 0;
+    saveUnitCounts(saved);
+    console.log(`📉 تقليل ${unitType}: 0 متبقي (محفوظ: 0)`);
+    return 0;
+  }
+
   current--;
   
   saved[unitType] = Math.max(0, current);
@@ -7737,6 +7746,30 @@ function initializeDragAndDrop() {
         console.log('لم يتم اختيار أي وحدة');
         return;
       }
+
+      // مزامنة الوحدة المختارة مع البطاقة الحالية بعد أي إعادة رسم للـ panel
+      const selectedUnitType = draggedUnit.getAttribute('data-unit-type');
+      const activeUnitsContainer = getCurrentPlayerUnitsContainer();
+      const activeUnitCard = activeUnitsContainer
+        ? activeUnitsContainer.querySelector(`[data-unit-type="${selectedUnitType}"]`)
+        : null;
+      const activeCountElement = activeUnitCard?.querySelector('.font-numbers');
+      const activeCount = activeCountElement ? parseInt(activeCountElement.textContent, 10) : 0;
+
+      if(!Number.isFinite(activeCount) || activeCount <= 0) {
+        console.warn(`❌ لا توجد وحدات ${unitNames[selectedUnitType] || selectedUnitType} متاحة`);
+        draggedUnit = null;
+        selectedUnit = null;
+        const tooltip = document.getElementById('unit-name-tooltip');
+        if(tooltip) {
+          tooltip.style.visibility = 'hidden';
+          tooltip.style.opacity = '0';
+        }
+        return;
+      }
+
+      // استخدم مرجع البطاقة الحالي دائماً
+      draggedUnit = activeUnitCard;
       
       console.log('تم النقر على خلية');
       
@@ -7795,7 +7828,7 @@ function initializeDragAndDrop() {
       console.log('✅ التحقق من الموقع نجح - اللاعب في الموقع الصحيح');
       
       // إنشاء عنصر الوحدة المُنزلة
-      const unitType = draggedUnit.getAttribute('data-unit-type');
+      const unitType = selectedUnitType;
       
       // التحقق من توافق نوع الوحدة مع نوع الخلية
       if(unitType === 'ship') {
