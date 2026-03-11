@@ -1,25 +1,11 @@
 {
+  "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "dockerfile"
   },
   "deploy": {
     "restartPolicyType": "always",
     "restartPolicyMaxRetries": 5,
-    "numReplicas": 1,
-    "instances": [
-      {
-        "mount": {
-          "source": "database-volume",
-          "path": "/app/database"
-        }
-      },
-      {
-        "mount": {
-          "source": "uploads-volume",
-          "path": "/app/uploads"
-        }
-      }
-    ]
+    "numReplicas": 1
   }
 }
-
