@@ -7481,7 +7481,50 @@ function populateUnitsPanel() {
     }).join('');
   }
 
+  // ✅ إعادة ربط click handlers على الوحدات بعد تحديث innerHTML
+  rebindUnitClickHandlers();
   updateProgressDisplays();
+}
+
+// ✅ دالة إعادة ربط click handlers على بطاقات الوحدات (تُستدعى كل مرة يُحدَّث فيها panel)
+function rebindUnitClickHandlers() {
+  const isGuestUserLocal = window.isGuestUser || localStorage.getItem('isGuestUser') === 'true';
+  const container = document.getElementById(isGuestUserLocal ? 'player2-units' : 'player1-units');
+  if (!container) return;
+
+  const unitCards = container.querySelectorAll('[data-unit-type]');
+  if (unitCards.length === 0) {
+    console.log('⚠️ [rebind] لا توجد بطاقات وحدات للربط');
+    return;
+  }
+
+  const unitNamesMap = {
+    'infantry': 'جندي', 'knight': '🐴 فرسان', 'archer': '🏹 رماة',
+    'ship': '⛵ مركب', 'queen': '♛ وزير', 'king': '♔ قائد'
+  };
+
+  unitCards.forEach(unitCard => {
+    unitCard.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const unitType = unitCard.getAttribute('data-unit-type');
+      const countElement = unitCard.querySelector('.font-numbers');
+      if (countElement && parseInt(countElement.textContent) <= 0) {
+        console.warn(`❌ لا توجد وحدات ${unitNamesMap[unitType] || ''} متاحة`);
+        return;
+      }
+      // إزالة التحديد السابق
+      document.querySelectorAll('[data-unit-type]').forEach(u => {
+        u.style.border = '1px solid #393628';
+        u.style.boxShadow = 'none';
+      });
+      // تحديد الوحدة الحالية
+      draggedUnit = unitCard;
+      unitCard.style.border = '2px solid #eecd2b';
+      unitCard.style.boxShadow = '0 0 15px rgba(238, 206, 43, 0.5)';
+      console.log('🎯 Unit Selected:', unitType, unitNamesMap[unitType] || '');
+    });
+  });
+  console.log(`✅ [rebind] تم ربط click handlers على ${unitCards.length} وحدة`);
 }
 
 // 🔐 نظام حفظ العدد الحقيقي للوحدات - معرف عالمياً
