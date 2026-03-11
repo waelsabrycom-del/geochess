@@ -7513,63 +7513,37 @@ function decrementUnitCount(unitType) {
 // دالة لتهيئة نظام الاختيار والإنزال
 function initializeDragAndDrop() {
   const ENABLE_SELECTED_UNIT_TOOLTIP = false;
-
-  // استخراج العناصر القابلة للاختيار من البار المرئي فقط
-  let unitElements;
   const isGuestUser = window.isGuestUser || localStorage.getItem('isGuestUser') === 'true';
-  
-  if(isGuestUser) {
-    // الضيف: البحث في player2-units
-    const player2Units = document.getElementById('player2-units');
-    console.log('🔍 البحث عن وحدات الضيف في player2-units:', player2Units ? 'موجود' : 'غير موجود');
-    unitElements = player2Units ? player2Units.querySelectorAll('[data-unit-type]') : [];
-  } else {
-    // المضيف: البحث في player1-units
-    const player1Units = document.getElementById('player1-units');
-    console.log('🔍 البحث عن وحدات المضيف في player1-units:', player1Units ? 'موجود' : 'غير موجود');
-    unitElements = player1Units ? player1Units.querySelectorAll('[data-unit-type]') : [];
+
+  // إنشاء عنصر لعرض اسم الوحدة تحت الموس (مرة واحدة فقط)
+  if (!document.getElementById('unit-name-tooltip')) {
+    const unitNameTooltip = document.createElement('div');
+    unitNameTooltip.id = 'unit-name-tooltip';
+    unitNameTooltip.style.cssText = `
+      position: fixed;
+      pointer-events: none;
+      background: rgba(238, 206, 43, 0.95);
+      color: #181711;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      z-index: 9999;
+      box-shadow: 0 0 15px rgba(238, 206, 43, 0.6);
+      border: 2px solid #C6A618;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 120px;
+      justify-content: center;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+    `;
+    if (!ENABLE_SELECTED_UNIT_TOOLTIP) unitNameTooltip.style.display = 'none';
+    document.body.appendChild(unitNameTooltip);
   }
-  
-  console.log('✅ تم العثور على ' + unitElements.length + ' وحدة للاختيار');
-  
-  if(unitElements.length === 0) {
-    console.warn('⚠️ تحذير: لم يتم العثور على أي وحدات! تأكد من أن populateUnitsPanel تم تنفيذها بنجاح');
-    return;
-  }
-  
-  // إنشاء عنصر لعرض اسم الوحدة تحت الموس
-  const unitNameTooltip = document.createElement('div');
-  unitNameTooltip.id = 'unit-name-tooltip';
-  unitNameTooltip.style.cssText = `
-    position: fixed;
-    pointer-events: none;
-    background: rgba(238, 206, 43, 0.95);
-    color: #181711;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 14px;
-    z-index: 9999;
-    box-shadow: 0 0 15px rgba(238, 206, 43, 0.6);
-    border: 2px solid #C6A618;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 120px;
-    justify-content: center;
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.1s ease-out;
-  `;
-  if (!ENABLE_SELECTED_UNIT_TOOLTIP) {
-    unitNameTooltip.style.display = 'none';
-  }
-  document.body.appendChild(unitNameTooltip);
-  
-  console.log('✅ Tooltip element created and appended to body');
-  console.log('   Element:', unitNameTooltip);
-  console.log('   In DOM:', document.getElementById('unit-name-tooltip') !== null);
-  
+
   // أسماء الوحدات بالعربية
   const unitNames = {
     'infantry': 'جندي',
@@ -7579,34 +7553,25 @@ function initializeDragAndDrop() {
     'queen': '♛ وزير',
     'king': '♔ قائد'
   };
-  
+
   // نظام الاختيار والإنزال بدلاً من السحب
   let selectedUnit = null;
-  
-  // تحديث موقع الاسم مع حركة الموس
-  document.addEventListener('mousemove', (e) => {
-    const tooltip = document.getElementById('unit-name-tooltip');
-    if(draggedUnit && tooltip) {
-      // تحديث الموضع مباشرة
-      const newX = e.clientX + 10;
-      const newY = e.clientY + 10;
-      
-      tooltip.style.left = newX + 'px';
-      tooltip.style.top = newY + 'px';
-      
-      // التأكد من ظهور الـ tooltip
-      tooltip.style.visibility = 'visible';
-      tooltip.style.opacity = '1';
-      
-      // تسجيل كل 50 حركة ماوس فقط لتجنب الإزعاج
-      if(Math.random() < 0.02) {
-        console.log('📍 Mouse:', newX, newY, '| Tooltip:', tooltip.style.visibility, tooltip.style.opacity);
+
+  // تحديث موقع الاسم مع حركة الموس (مرة واحدة فقط)
+  if (!window._unitMouseMoveInit) {
+    window._unitMouseMoveInit = true;
+    document.addEventListener('mousemove', (e) => {
+      const tooltip = document.getElementById('unit-name-tooltip');
+      if (draggedUnit && tooltip) {
+        tooltip.style.left = (e.clientX + 10) + 'px';
+        tooltip.style.top = (e.clientY + 10) + 'px';
+        tooltip.style.visibility = 'visible';
+        tooltip.style.opacity = '1';
       }
-    }
-  }, { passive: true });
-  
-  // ✅ Event Delegation: listener على الحاوية الثابتة بدلاً من البطاقات الفردية
-  // يضمن استمرار عمل الـ listeners حتى لو استبدل populateUnitsPanel innerHTML الحاوية
+    }, { passive: true });
+  }
+
+  // ✅ Event Delegation على الحاوية الثابتة (تعمل حتى لو تغيّر innerHTML)
   const unitsContainerForDnd = isGuestUser
     ? document.getElementById('player2-units')
     : document.getElementById('player1-units');
@@ -7670,30 +7635,20 @@ function initializeDragAndDrop() {
       
       // إنشاء عنصر الصورة
       if (ENABLE_SELECTED_UNIT_TOOLTIP) {
-        unitNameTooltip.innerHTML = `
-          <img src="${colorPrefix[currentUnitColor][unitType === 'infantry' ? 'pawn' : unitType]}" 
-               alt="${unitNames[unitType]}" 
-               style="width: 28px; height: 28px; object-fit: contain;">
-          <span>${unitNames[unitType]}</span>
-        `;
-        
-        // تطبيق الأنماط بشكل صريح
-        unitNameTooltip.style.visibility = 'visible';
-        unitNameTooltip.style.opacity = '1';
+        const unitNameTooltip = document.getElementById('unit-name-tooltip');
+        if (unitNameTooltip) {
+          unitNameTooltip.innerHTML = `
+            <img src="${colorPrefix[currentUnitColor][unitType === 'infantry' ? 'pawn' : unitType]}" 
+                 alt="${unitNames[unitType]}" 
+                 style="width: 28px; height: 28px; object-fit: contain;">
+            <span>${unitNames[unitType]}</span>
+          `;
+          unitNameTooltip.style.visibility = 'visible';
+          unitNameTooltip.style.opacity = '1';
+        }
       }
       
-      // تسجيل شامل
-      console.group('🎯 Unit Selected');
-      console.log('   Unit Type:', unitType);
-      console.log('   Unit Name:', unitNames[unitType]);
-      console.log('   Tooltip HTML:', unitNameTooltip.innerHTML);
-      console.log('   Tooltip Visibility:', unitNameTooltip.style.visibility);
-      console.log('   Tooltip Opacity:', unitNameTooltip.style.opacity);
-      console.log('   Computed Visibility:', window.getComputedStyle(unitNameTooltip).visibility);
-      console.log('   Computed Opacity:', window.getComputedStyle(unitNameTooltip).opacity);
-      console.log('   Tooltip Parent:', unitNameTooltip.parentElement);
-      console.log('   Tooltip in DOM:', document.contains(unitNameTooltip));
-      console.groupEnd();
+      console.log('🎯 Unit Selected:', unitType, unitNames[unitType]);
     }); // end delegation click listener
 
   } // end _unitDndInit guard
@@ -8028,19 +7983,11 @@ function initializeDragAndDrop() {
       if(draggedUnit) {
         cell.style.outline = '2px solid #eecd2b';
         cell.style.outlineOffset = '-2px';
-        if (ENABLE_SELECTED_UNIT_TOOLTIP) {
-          unitNameTooltip.style.visibility = 'visible';
-          unitNameTooltip.style.opacity = '1';
-        }
       }
     });
     
     cell.addEventListener('mouseleave', (e) => {
       cell.style.outline = 'none';
-      if(ENABLE_SELECTED_UNIT_TOOLTIP && draggedUnit) {
-        unitNameTooltip.style.visibility = 'visible';
-        unitNameTooltip.style.opacity = '1';
-      }
     });
   });
   

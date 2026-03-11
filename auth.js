@@ -58,8 +58,19 @@ function verifyToken(req, res, next) {
         if (err) {
             return res.status(401).json({ success: false, message: 'توكن غير صحيح' });
         }
-        req.userId = decoded.id;
-        next();
+
+        // التحقق من أن الجلسة لا تزال صالحة في قاعدة البيانات
+        db.get(
+            `SELECT id FROM sessions WHERE token = ? AND user_id = ? AND expires_at > datetime('now')`,
+            [token, decoded.id],
+            (dbErr, session) => {
+                if (dbErr || !session) {
+                    return res.status(401).json({ success: false, message: 'انتهت الجلسة، يرجى إعادة الدخول' });
+                }
+                req.userId = decoded.id;
+                next();
+            }
+        );
     });
 }
 
