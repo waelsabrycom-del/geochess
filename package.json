@@ -4,16 +4,17 @@
   "description": "لعبة الشطرنج الجغرافي - نظام إدارة المباريات",
   "main": "server.js",
   "scripts": {
-    "start": "npm run migrate:pg && node server.js",
-    "start:advanced": "node advanced-startup.js",
-    "start:monitor": "node server-monitor.js",
-    "optimize": "node database-optimizer.js",
-    "diagnose": "node quick-diagnostic.js",
-    "dev": "nodemon server.js",
-    "test": "node test.js",
-    "seed": "node seedData.js",
-    "migrate:pg": "node scripts/tools/migrate-sqlite-to-postgres.js"
-  },
+  "start": "node server.js",
+  "start:advanced": "node advanced-startup.js",
+  "start:monitor": "node server-monitor.js",
+  "migrate:pg": "node scripts/tools/migrate-sqlite-to-postgres.js",
+  "start:pg": "npm run migrate:pg && node server.js",
+  "optimize": "node database-optimizer.js",
+  "diagnose": "node quick-diagnostic.js",
+  "dev": "nodemon server.js",
+  "test": "node test.js",
+  "seed": "node seedData.js"
+},
   "keywords": [
     "chess",
     "geographical",
