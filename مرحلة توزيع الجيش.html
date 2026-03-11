@@ -6708,7 +6708,15 @@ function loadOpponentData(gameId) {
         // حفظ الاسم في localStorage للاستخدام لاحقاً
         localStorage.setItem('opponentName', opponentName);
         // إعادة استدعاء populateUnitsPanel للتأكد من تحديث الاسم في الوحدات أيضاً
-        setTimeout(() => populateUnitsPanel(), 100);
+        // ⚠️ مهم: يجب إعادة تهيئة initializeDragAndDrop بعد populateUnitsPanel لأن
+        // innerHTML يُستبدل كلياً مما يُلغي event listeners السابقة (مشكلة على النت بسبب تأخر الشبكة)
+        setTimeout(() => {
+          populateUnitsPanel();
+          setTimeout(() => {
+            console.log('🔄 إعادة تهيئة نظام الوضع بعد تحديث بيانات الخصم...');
+            initializeDragAndDrop();
+          }, 50);
+        }, 100);
         return opponentName; // إرجاع الاسم للتأكد من نجاح العملية
       }
     })
