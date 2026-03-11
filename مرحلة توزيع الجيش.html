@@ -6707,16 +6707,9 @@ function loadOpponentData(gameId) {
         console.log('تم تحميل بيانات الخصم:', opponentName);
         // حفظ الاسم في localStorage للاستخدام لاحقاً
         localStorage.setItem('opponentName', opponentName);
-        // إعادة استدعاء populateUnitsPanel للتأكد من تحديث الاسم في الوحدات أيضاً
-        // ⚠️ مهم: يجب إعادة تهيئة initializeDragAndDrop بعد populateUnitsPanel لأن
-        // innerHTML يُستبدل كلياً مما يُلغي event listeners السابقة (مشكلة على النت بسبب تأخر الشبكة)
-        setTimeout(() => {
-          populateUnitsPanel();
-          setTimeout(() => {
-            console.log('🔄 إعادة تهيئة نظام الوضع بعد تحديث بيانات الخصم...');
-            initializeDragAndDrop();
-          }, 50);
-        }, 100);
+        // ✅ تحديث أسماء الوحدات فقط - لا حاجة لإعادة initializeDragAndDrop
+        // لأن Event Delegation على الحاوية تبقى مربوطة حتى بعد إعادة بناء innerHTML
+        setTimeout(() => populateUnitsPanel(), 100);
         return opponentName; // إرجاع الاسم للتأكد من نجاح العملية
       }
     })
@@ -7612,13 +7605,21 @@ function initializeDragAndDrop() {
     }
   }, { passive: true });
   
-  unitElements.forEach(unit => {
-    // تم إزالة unit.style.cursor = 'pointer' لأنه يتعارض مع cursor-grab classes
-    // الموس سيظهر كـ grab بفضل CSS classes
-    
-    unit.addEventListener('click', (e) => {
+  // ✅ Event Delegation: listener على الحاوية الثابتة بدلاً من البطاقات الفردية
+  // يضمن استمرار عمل الـ listeners حتى لو استبدل populateUnitsPanel innerHTML الحاوية
+  const unitsContainerForDnd = isGuestUser
+    ? document.getElementById('player2-units')
+    : document.getElementById('player1-units');
+
+  if (unitsContainerForDnd && !unitsContainerForDnd._unitDndInit) {
+    unitsContainerForDnd._unitDndInit = true;
+    console.log('✅ [DnD] تم ربط Event Delegation على حاوية الوحدات (مرة واحدة)');
+
+    unitsContainerForDnd.addEventListener('click', (e) => {
+      const unit = e.target.closest('[data-unit-type]');
+      if (!unit) return;
       e.stopPropagation();
-      
+
       // فحص إذا كان العدد = 0 للوحدات
       const unitType = unit.getAttribute('data-unit-type');
       const countElement = unit.querySelector('.font-numbers');
@@ -7693,17 +7694,10 @@ function initializeDragAndDrop() {
       console.log('   Tooltip Parent:', unitNameTooltip.parentElement);
       console.log('   Tooltip in DOM:', document.contains(unitNameTooltip));
       console.groupEnd();
-    });
-    
-    // إخفاء الاسم عند مغادرة الوحدة
-    unit.addEventListener('mouseleave', () => {
-      if(ENABLE_SELECTED_UNIT_TOOLTIP && draggedUnit === unit) {
-        unitNameTooltip.style.visibility = 'visible';
-        unitNameTooltip.style.opacity = '1';
-      }
-    });
-  });
-  
+    }); // end delegation click listener
+
+  } // end _unitDndInit guard
+
   // استقبال الوحدات على الخريطة
   const mapCells = document.querySelectorAll('.map-cell');
   console.log('تم العثور على ' + mapCells.length + ' خلية خريطة');
