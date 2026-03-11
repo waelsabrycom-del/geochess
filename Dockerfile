@@ -1,5 +1,5 @@
 FROM node:18-alpine
-
+ARG CACHEBUST=1
 WORKDIR /app
 
 # نسخ ملفات الحزم أولاً للاستفادة من كاش Docker
