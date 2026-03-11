@@ -333,6 +333,47 @@ localStorage.setItem('authToken', token);        // التوكن
 localStorage.setItem('userId', user.id);        // معرف المستخدم
 localStorage.setItem('username', user.username);// اسم المستخدم
 localStorage.setItem('userLevel', user.level);  // المستوى
+```
+
+## النشر على Railway (Deployment)
+
+### مشكلة المشاركة البيانات
+
+عند نشر التطبيق على Railway، يحدث redeploy تلقائي مع كل `git push`. هذا قد يؤدي لفقدان قاعدة البيانات إلا إذا تم إضافة **persistent volumes**.
+
+### الحل: إضافة Persistent Volumes
+
+#### 1. في الملفات (تم إضافة `railway.json`):
+الملف موجود بالفعل ويحتوي على تكوين الـ volumes المطلوب.
+
+#### 2. في لوحة التحكم (Railway Dashboard):
+1. اذهب إلى [railway.app](https://railway.app) وافتح المشروع
+2. اختر الخدمة الرئيسية (App)
+3. من القائمة: **Settings → Volumes**
+4. اضغط **Create Volume** وأضف:
+   ```
+   Mount Path: /app/database
+   Size: 5 GB
+   Name: database-volume
+   
+   Mount Path: /app/uploads
+   Size: 10 GB
+   Name: uploads-volume
+   ```
+5. اضغط **Deploy** → سيبدأ redeploy مع الـ volumes الجديدة
+
+#### 3. التحقق من النجاح:
+بعد الانتهاء، ستظهر في **Deployments** علامة خضراء ✓
+
+### النتيجة:
+- ✅ جميع البيانات تُحفظ بشكل دائم
+- ✅ لا توجد عملية فقدان بيانات عند `git push` لاحقاً
+- ✅ uploads (الصور والملفات) محفوظة أيضاً
+
+### ملاحظات:
+- هذا التكوين يعمل فقط على Railway Pro أو إذا كانت لديك أرصدة كافية
+- بدون volumes، البيانات تُفقد عند كل redeploy
+- يمكنك نسخ احتياطي يدوي من قاعدة البيانات قبل التحديثات الكبيرة
 localStorage.setItem('userRank', user.rank);    // الرتبة
 ```
 
