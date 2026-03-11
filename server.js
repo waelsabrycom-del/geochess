@@ -7,6 +7,7 @@ const authRoutes = require('./auth');
 const tournamentsRoutes = require('./tournaments');
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
+const { createAdapter } = require('@socket.io/redis-adapter');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { initPostgresSchema, isPostgresEnabled } = require('./services/postgres-service');
@@ -3424,6 +3425,15 @@ const io = new Server(server, {
         credentials: true
     }
 });
+
+// Socket.IO Redis adapter للتوسع الأفقي (multiple instances)
+if (redisService.isRedisEnabled) {
+    const pubSub = redisService.createPubSubClients();
+    if (pubSub) {
+        io.adapter(createAdapter(pubSub.pubClient, pubSub.subClient));
+        console.log('✓ Socket.IO Redis adapter enabled');
+    }
+}
 
 // معالجة الاتصالات عبر Socket.io
 io.on('connection', (socket) => {

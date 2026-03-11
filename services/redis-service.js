@@ -4,18 +4,33 @@ const isRedisEnabled = process.env.USE_REDIS === 'true' && !!process.env.REDIS_U
 
 let redis = null;
 
+function createRedisClient() {
+    if (!isRedisEnabled) return null;
+
+    const client = new Redis(process.env.REDIS_URL, {
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: true
+    });
+
+    client.on('connect', () => console.log('Redis client connected'));
+    client.on('error', (err) => console.error('Redis client error:', err.message));
+    return client;
+}
+
 function getRedis() {
     if (!isRedisEnabled) return null;
     if (!redis) {
-        redis = new Redis(process.env.REDIS_URL, {
-            maxRetriesPerRequest: 3,
-            enableReadyCheck: true
-        });
-
-        redis.on('connect', () => console.log('Redis connected'));
-        redis.on('error', (err) => console.error('Redis error:', err.message));
+        redis = createRedisClient();
     }
     return redis;
+}
+
+function createPubSubClients() {
+    if (!isRedisEnabled) return null;
+
+    const pubClient = createRedisClient();
+    const subClient = createRedisClient();
+    return { pubClient, subClient };
 }
 
 async function setSession(token, userId, ttlSeconds) {
@@ -86,6 +101,7 @@ async function getMatchForUser(userId) {
 module.exports = {
     isRedisEnabled,
     getRedis,
+    createPubSubClients,
     setSession,
     getSessionUserId,
     deleteSession,
