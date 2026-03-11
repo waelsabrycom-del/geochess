@@ -57,15 +57,29 @@
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen flex flex-col font-body map-pattern">
 <script>
   (function initializeWaitingRoomGameId() {
+    function normalizeGameId(value) {
+      const normalized = String(value || '').trim();
+      if (!normalized) return '';
+      if (normalized === 'undefined' || normalized === 'null' || normalized === 'NaN') return '';
+      return normalized;
+    }
+
     const params = new URLSearchParams(window.location.search);
-    const gameIdFromUrl = params.get('gameId');
-    const gameIdFromSession = sessionStorage.getItem('gameId');
-    const gameIdFromLocal = localStorage.getItem('gameId');
+    const gameIdFromUrl = normalizeGameId(params.get('gameId'));
+    const gameIdFromSession = normalizeGameId(sessionStorage.getItem('gameId'));
+    const gameIdFromLocal = normalizeGameId(localStorage.getItem('gameId'));
     const resolvedGameId = gameIdFromUrl || gameIdFromSession || gameIdFromLocal || '';
 
     window.getCurrentGameId = function getCurrentGameId() {
-      return localStorage.getItem('gameId') || sessionStorage.getItem('gameId') || params.get('gameId') || '';
+      return normalizeGameId(localStorage.getItem('gameId')) || normalizeGameId(sessionStorage.getItem('gameId')) || normalizeGameId(params.get('gameId')) || '';
     };
+
+    if (!gameIdFromLocal && localStorage.getItem('gameId')) {
+      localStorage.removeItem('gameId');
+    }
+    if (!gameIdFromSession && sessionStorage.getItem('gameId')) {
+      sessionStorage.removeItem('gameId');
+    }
 
     if (resolvedGameId) {
       if (localStorage.getItem('gameId') !== resolvedGameId) {

@@ -305,6 +305,21 @@ function logout() {
     window.location.href = 'تسجيل دخول.html';
 }
 
+function normalizeWaitingRoomGameId(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized || normalized === 'undefined' || normalized === 'null' || normalized === 'NaN') {
+    return '';
+  }
+  return normalized;
+}
+
+function buildWaitingRoomUrl(gameId) {
+  const normalizedGameId = normalizeWaitingRoomGameId(gameId) || normalizeWaitingRoomGameId(localStorage.getItem('gameId'));
+  return normalizedGameId
+    ? `غرفة الانتظار.html?gameId=${encodeURIComponent(normalizedGameId)}`
+    : 'غرفة الانتظار.html';
+}
+
 // تحميل صورة المستخدم في الهيدر
 async function loadUserAvatarHeader() {
   try {
@@ -878,7 +893,7 @@ window.addEventListener('DOMContentLoaded', function() {
             console.warn('⚠️ فشل إنشاء المباراة:', result.message);
           }
           setTimeout(() => {
-            window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(result.gameId)}`;
+            window.location.href = buildWaitingRoomUrl(result.gameId);
           }, 500);
         })
         .catch(err => {
@@ -890,7 +905,7 @@ window.addEventListener('DOMContentLoaded', function() {
           localStorage.setItem('adminMode_' + gameId, 'true');
           console.log('✅ حفظ adminMode_' + gameId + ' (في حالة الخطأ)');
           setTimeout(() => {
-            window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(gameId)}`;
+            window.location.href = buildWaitingRoomUrl(gameId);
           }, 500);
         });
       } else {
@@ -902,7 +917,7 @@ window.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('adminMode_' + gameId, 'true');
         console.log('✅ حفظ adminMode_' + gameId);
         setTimeout(() => {
-          window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(gameId)}`;
+          window.location.href = buildWaitingRoomUrl(gameId);
         }, 500);
       }
     };
@@ -1591,7 +1606,7 @@ if(createMatchBtn) {
         localStorage.setItem('adminMode_' + gameId, 'true');
         console.log('✅ حفظ adminMode_' + gameId);
         setTimeout(() => {
-          window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(gameId)}`;
+          window.location.href = buildWaitingRoomUrl(gameId);
         }, 500);
       })
       .catch(err => {
@@ -1602,7 +1617,7 @@ if(createMatchBtn) {
         localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
         
         setTimeout(() => {
-          window.location.href = `غرفة الانتظار.html?gameId=${encodeURIComponent(gameId)}`;
+          window.location.href = buildWaitingRoomUrl(gameId);
         }, 500);
       });
     } else {
