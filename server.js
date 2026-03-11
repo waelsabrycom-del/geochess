@@ -3363,9 +3363,13 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 // 🆕 إعداد Socket.io للشات الجماعي في البطولات
+const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+    : true; // السماح لكل الأصول في حال عدم التحديد
+
 const io = new Server(server, {
     cors: {
-        origin: isProduction ? allowedOrigins : "*",
+        origin: allowedOrigins,
         methods: ["GET", "POST"],
         credentials: true
     }

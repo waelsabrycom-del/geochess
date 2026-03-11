@@ -89,8 +89,9 @@ router.post('/register', (req, res) => {
         });
     }
 
-    // التحقق من نوع المستخدم - لا يسمح بتسجيل admin من الواجهة العامة
-    const finalUserType = 'player';
+    // السماح بنوعي المستخدم: لاعب أو مدير (المدير ليس سوبر أدمن - يمكن أن يوجد أكثر من مدير)
+    const allowedTypes = ['player', 'admin'];
+    const finalUserType = allowedTypes.includes(userType) ? userType : 'player';
 
     // تشفير كلمة المرور
     const hashedPassword = bcrypt.hashSync(password, 10);

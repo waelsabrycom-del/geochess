@@ -279,7 +279,7 @@
                 localStorage.setItem('authToken', data.token);
                 localStorage.setItem('userId', data.user.id);
                 localStorage.setItem('username', data.user.username);
-                localStorage.setItem('userType', userType);
+                localStorage.setItem('userType', data.user.user_type || 'player');
 
                 successDiv.textContent = 'تم التسجيل بنجاح! جاري التحويل...';
                 successDiv.classList.remove('hidden');
