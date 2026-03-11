@@ -498,7 +498,7 @@ router.post('/logout', verifyToken, async (req, res) => {
 });
 
 // API لتحديث الصورة الشخصية
-router.post('/update-avatar', verifyToken, upload.single('avatar'), (req, res) => {
+router.post('/update-avatar', verifyToken, upload.single('avatar'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({
             success: false,
@@ -508,6 +508,25 @@ router.post('/update-avatar', verifyToken, upload.single('avatar'), (req, res) =
 
     const userId = req.userId;
     const avatarPath = `/uploads/avatars/${req.file.filename}`;
+
+    if (isPostgresEnabled) {
+        try {
+            await pgQuery(`UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`, [avatarPath, userId]);
+            return res.json({
+                success: true,
+                message: 'تم تحديث الصورة بنجاح',
+                avatar: avatarPath
+            });
+        } catch (err) {
+            fs.unlink(req.file.path, (unlinkErr) => {
+                if (unlinkErr) console.error('خطأ في حذف الملف:', unlinkErr);
+            });
+            return res.status(500).json({
+                success: false,
+                message: 'خطأ في تحديث الصورة'
+            });
+        }
+    }
 
     // تحديث قاعدة البيانات
     db.run(
@@ -536,7 +555,22 @@ router.post('/update-avatar', verifyToken, upload.single('avatar'), (req, res) =
 });
 
 // API لجلب قائمة جميع المستخدمين
-router.get('/users', verifyToken, (req, res) => {
+router.get('/users', verifyToken, async (req, res) => {
+    if (isPostgresEnabled) {
+        try {
+            const result = await pgQuery('SELECT id, username, email, avatar_url FROM users ORDER BY username');
+            return res.json({
+                success: true,
+                users: result.rows || []
+            });
+        } catch (err) {
+            return res.status(500).json({
+                success: false,
+                message: 'خطأ في جلب المستخدمين'
+            });
+        }
+    }
+
     db.all(
         'SELECT id, username, email, avatar_url FROM users ORDER BY username',
         [],
