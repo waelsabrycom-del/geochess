@@ -337,45 +337,47 @@ localStorage.setItem('userLevel', user.level);  // المستوى
 
 ## النشر على Railway (Deployment)
 
-### مشكلة المشاركة البيانات
+### المعمارية المعتمدة للإنتاج
 
-عند نشر التطبيق على Railway، يحدث redeploy تلقائي مع كل `git push`. هذا قد يؤدي لفقدان قاعدة البيانات إلا إذا تم إضافة **persistent volumes**.
+- PostgreSQL للحسابات والمباريات
+- Redis للجلسات والـ matchmaking
+- WebSocket للعب المباشر (المسار: `/ws/live`)
 
-### الحل: إضافة Persistent Volumes
+### لماذا لم نعد نستخدم SQLite في الإنتاج؟
 
-#### 1. في الملفات (تم إضافة `railway.json`):
-الملف موجود بالفعل ويحتوي على تكوين الـ volumes المطلوب.
+SQLite يعتمد على ملف داخل حاوية التطبيق. عند إعادة النشر في Railway قد تتغير الحاوية، لذلك البيانات غير مضمونة. لهذا تم تجهيز المشروع لدعم PostgreSQL وRedis عبر متغيرات البيئة.
 
-#### 2. في لوحة التحكم (Railway Dashboard):
-1. اذهب إلى [railway.app](https://railway.app) وافتح المشروع
-2. اختر الخدمة الرئيسية (App)
-3. من القائمة: **Settings → Volumes**
-4. اضغط **Create Volume** وأضف:
-   ```
-   Mount Path: /app/database
-   Size: 5 GB
-   Name: database-volume
-   
-   Mount Path: /app/uploads
-   Size: 10 GB
-   Name: uploads-volume
-   ```
-5. اضغط **Deploy** → سيبدأ redeploy مع الـ volumes الجديدة
+### متغيرات البيئة المطلوبة
 
-#### 3. التحقق من النجاح:
-بعد الانتهاء، ستظهر في **Deployments** علامة خضراء ✓
+```env
+USE_POSTGRES=true
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB_NAME
+PG_SSL=true
 
-### النتيجة:
-- ✅ جميع البيانات تُحفظ بشكل دائم
-- ✅ لا توجد عملية فقدان بيانات عند `git push` لاحقاً
-- ✅ uploads (الصور والملفات) محفوظة أيضاً
-
-### ملاحظات:
-- هذا التكوين يعمل فقط على Railway Pro أو إذا كانت لديك أرصدة كافية
-- بدون volumes، البيانات تُفقد عند كل redeploy
-- يمكنك نسخ احتياطي يدوي من قاعدة البيانات قبل التحديثات الكبيرة
-localStorage.setItem('userRank', user.rank);    // الرتبة
+USE_REDIS=true
+REDIS_URL=redis://default:PASSWORD@HOST:PORT
 ```
+
+### خطوات التفعيل على Railway
+
+1. أضف خدمة `PostgreSQL` داخل نفس المشروع.
+2. أضف خدمة `Redis` داخل نفس المشروع.
+3. انسخ `DATABASE_URL` من خدمة Postgres إلى متغيرات خدمة التطبيق.
+4. انسخ `REDIS_URL` من خدمة Redis إلى متغيرات خدمة التطبيق.
+5. فعّل `USE_POSTGRES=true` و `USE_REDIS=true`.
+6. أعد النشر.
+
+### APIs الجديدة
+
+- `POST /api/matchmaking/enqueue` (يتطلب Bearer token)
+- `GET /api/matchmaking/status` (يتطلب Bearer token)
+- `WS /ws/live?token=JWT_TOKEN`
+
+### ملاحظات مهمة
+
+- عند تفعيل PostgreSQL، يتم تجهيز جداول الحسابات/المباريات/الجلسات تلقائياً عند بدء الخادم.
+- جلسات JWT تُحفظ في Redis لتسريع التحقق، مع بقاء حفظها في قاعدة البيانات أيضاً.
+- Socket.IO الحالي ما زال يعمل للشات، وWebSocket الأصلي مخصص لحركة اللعب المباشر منخفضة التأخير.
 
 ## الأمان
 
