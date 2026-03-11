@@ -1,27 +1,24 @@
 FROM node:18-alpine
 
-# يمنع Docker من استخدام الكاش القديم
-ARG CACHEBUST=1
-
 WORKDIR /app
 
-# نسخ ملفات الحزم أولاً للاستفادة من الكاش
+# نسخ ملفات الحزم أولاً للاستفادة من كاش Docker
 COPY package*.json ./
 
-# تثبيت الحزم
+# تثبيت الحزم للإنتاج فقط
 RUN npm ci --omit=dev
 
-# نسخ بقية المشروع
+# نسخ ملفات المشروع
 COPY . .
 
-# إنشاء المجلدات المطلوبة
+# إنشاء مجلدات مطلوبة
 RUN mkdir -p database uploads/avatars logs
 
-# متغيرات البيئة
+# تعيين المتغيرات
 ENV NODE_ENV=production
 ENV PORT=3000
 
 EXPOSE 3000
 
-# تشغيل migration ثم السيرفر
-CMD ["sh", "-c", "npm run migrate:pg && node server.js"]
+# تشغيل الخادم
+CMD ["node", "server.js"]
