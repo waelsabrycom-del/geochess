@@ -9,6 +9,9 @@ const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { initPostgresSchema, isPostgresEnabled } = require('./services/postgres-service');
+const redisService = require('./services/redis-service');
+const { initLiveWebSocketServer } = require('./realtime/live-ws');
 require('dotenv').config();
 
 const app = express();
@@ -97,6 +100,39 @@ app.use('/api/auth', authLimiter, authRoutes);
 
 // استخدام مسارات البطولات
 app.use('/api/tournaments', tournamentsRoutes);
+
+// Redis Matchmaking API
+app.post('/api/matchmaking/enqueue', authenticateToken, async (req, res) => {
+    const queue = req.body?.queue || 'ranked-pvp';
+    try {
+        const result = await redisService.enqueueMatchmaking(queue, req.user.id, {
+            rating: req.body?.rating || null,
+            preferredMapSize: req.body?.preferredMapSize || null
+        });
+
+        if (!result) {
+            return res.status(503).json({
+                success: false,
+                message: 'Redis غير مفعل. فعّل USE_REDIS و REDIS_URL.'
+            });
+        }
+
+        return res.json({ success: true, ...result });
+    } catch (err) {
+        console.error('❌ matchmaking enqueue error:', err.message);
+        return res.status(500).json({ success: false, message: 'خطأ في نظام المطابقة' });
+    }
+});
+
+app.get('/api/matchmaking/status', authenticateToken, async (req, res) => {
+    try {
+        const match = await redisService.getMatchForUser(req.user.id);
+        return res.json({ success: true, matched: !!match, match: match || null });
+    } catch (err) {
+        console.error('❌ matchmaking status error:', err.message);
+        return res.status(500).json({ success: false, message: 'خطأ في نظام المطابقة' });
+    }
+});
 
 // API لإنشاء لعبة جديدة
 app.post('/api/games/create', (req, res) => {
@@ -3360,6 +3396,20 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n✓ الخادم يعمل على http://0.0.0.0:${PORT}`);
     console.log(`✓ يمكنك الدخول من أجهزة أخرى على الشبكة`);
     console.log(`✓ التطبيق جاهز للعمل`);
+
+    if (isPostgresEnabled) {
+        initPostgresSchema().catch((err) => {
+            console.error('❌ فشل تهيئة PostgreSQL:', err.message);
+        });
+    } else {
+        console.log('ℹ️ PostgreSQL غير مفعل (USE_POSTGRES=false)');
+    }
+
+    if (redisService.isRedisEnabled) {
+        redisService.getRedis();
+    } else {
+        console.log('ℹ️ Redis غير مفعل (USE_REDIS=false)');
+    }
 });
 
 // 🆕 إعداد Socket.io للشات الجماعي في البطولات
@@ -3438,6 +3488,10 @@ io.on('connection', (socket) => {
 
 // تصدير io لاستخدامه في بقية التطبيق
 global.io = io;
+
+// WebSocket مباشر للعبة الحية (native ws)
+const liveWsServer = initLiveWebSocketServer(server, redisService);
+global.liveWsServer = liveWsServer;
 
 // معالج أخطاء الخادم
 server.on('error', (err) => {

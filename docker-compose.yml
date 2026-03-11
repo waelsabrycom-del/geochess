@@ -14,3 +14,37 @@ services:
       - ./uploads:/app/uploads
     environment:
       - NODE_ENV=production
+      - USE_POSTGRES=true
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/geochess
+      - PG_SSL=false
+      - USE_REDIS=true
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: geochess-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=geochess
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: geochess-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
