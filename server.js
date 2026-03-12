@@ -285,68 +285,48 @@ app.get('/api/games/available', async (req, res) => {
 });
 
 // API للانضمام إلى لعبة
-app.post('/api/games/join', (req, res) => {
+app.post('/api/games/join', async (req, res) => {
     const { game_id, user_id } = req.body;
-
     console.log(`\n👤 الضيف ينضم: user_id=${user_id}, game_id=${game_id}`);
-
     if (!game_id || !user_id) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'معرف اللعبة والمستخدم مطلوب' 
-        });
+        return res.status(400).json({ success: false, message: 'معرف اللعبة والمستخدم مطلوب' });
     }
-
-    // التحقق من حالة اللعبة
+    if (isPostgresEnabled) {
+        try {
+            const result = await pgQuery(`SELECT * FROM games WHERE id = $1`, [game_id]);
+            const game = result.rows[0];
+            if (!game) {
+                return res.status(404).json({ success: false, message: 'اللعبة غير موجودة' });
+            }
+            if (game.status !== 'waiting') {
+                return res.status(400).json({ success: false, message: 'اللعبة لم تعد متاحة' });
+            }
+            await pgQuery(`INSERT INTO game_players (game_id, user_id, player_side) VALUES ($1, $2, 'black')`, [game_id, user_id]);
+            return res.json({ success: true, message: 'تم الانضمام للعبة بنجاح' });
+        } catch (err) {
+            console.error('❌ [PG] خطأ في الانضمام للعبة:', err.message);
+            return res.status(500).json({ success: false, message: 'خطأ في الانضمام للعبة' });
+        }
+    }
+    // ...existing code...
     db.get(
         `SELECT * FROM games WHERE id = ?`,
         [game_id],
         (err, game) => {
             if (err || !game) {
-                return res.status(404).json({ 
-                    success: false, 
-                    message: 'اللعبة غير موجودة' 
-                });
+                return res.status(404).json({ success: false, message: 'اللعبة غير موجودة' });
             }
-
             if (game.status !== 'waiting') {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'اللعبة لم تعد متاحة' 
-                });
+                return res.status(400).json({ success: false, message: 'اللعبة لم تعد متاحة' });
             }
-
-            // إضافة اللاعب
             db.run(
                 `INSERT INTO game_players (game_id, user_id, player_side) VALUES (?, ?, 'black')`,
                 [game_id, user_id],
                 (err) => {
                     if (err) {
-                        return res.status(500).json({ 
-                            success: false, 
-                            message: 'خطأ في الانضمام للعبة' 
-                        });
+                        return res.status(500).json({ success: false, message: 'خطأ في الانضمام للعبة' });
                     }
-
-                    // تحديث حالة اللعبة
-                    db.run(
-                        `UPDATE games SET opponent_id = ?, status = 'ready' WHERE id = ?`,
-                        [user_id, game_id],
-                        (err) => {
-                            if (err) {
-                                return res.status(500).json({ 
-                                    success: false, 
-                                    message: 'خطأ في تحديث اللعبة' 
-                                });
-                            }
-
-                            console.log(`✅ تم تحديث opponent_id = ${user_id} للعبة ${game_id}`);
-                            res.json({
-                                success: true,
-                                message: 'تم الانضمام للعبة بنجاح'
-                            });
-                        }
-                    );
+                    res.json({ success: true, message: 'تم الانضمام للعبة بنجاح' });
                 }
             );
         }
