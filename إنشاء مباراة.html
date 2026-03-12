@@ -109,7 +109,7 @@
 <label class="block text-white font-bold mb-4 text-sm">خصوصية المباراة</label>
 <div class="flex gap-4">
 <label class="cursor-pointer relative flex-1">
-<input checked="" class="peer sr-only" name="privacy" type="radio"/>
+<input checked="" class="peer sr-only" name="privacy" type="radio" value="public"/>
 <div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
 <span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">public</span>
 <div>
@@ -119,7 +119,7 @@
 </div>
 </label>
 <label class="cursor-pointer relative flex-1">
-<input class="peer sr-only" name="privacy" type="radio"/>
+<input class="peer sr-only" name="privacy" type="radio" value="private"/>
 <div class="p-4 rounded-lg border border-[#393628] bg-surface-darker peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex items-center gap-3">
 <span class="material-symbols-outlined text-[#b9b49d] peer-checked:text-primary">lock</span>
 <div>
@@ -318,6 +318,18 @@ function buildWaitingRoomUrl(gameId) {
   return normalizedGameId
     ? `غرفة الانتظار.html?gameId=${encodeURIComponent(normalizedGameId)}`
     : 'غرفة الانتظار.html';
+}
+
+function normalizePrivacyValue(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'public' || normalized.includes('عامة')) return 'public';
+  if (normalized === 'private' || normalized.includes('خاصة')) return 'private';
+  return '';
+}
+
+function getSelectedPrivacyValue() {
+  const selected = document.querySelector('input[name="privacy"]:checked');
+  return normalizePrivacyValue(selected?.value || selected?.parentElement?.textContent || '') || 'public';
 }
 
 // تحميل صورة المستخدم في الهيدر
@@ -737,9 +749,7 @@ window.addEventListener('DOMContentLoaded', function() {
       
       const currentUser = localStorage.getItem('username') || 'لاعب مجهول';
       
-      const privacyInputs = document.querySelectorAll('input[name="privacy"]');
-      let privacy = '';
-      privacyInputs.forEach(input => { if(input.checked) privacy = input.parentElement.textContent.trim(); });
+      const privacy = getSelectedPrivacyValue();
       
       const difficultyInputs = document.querySelectorAll('input[name="difficulty"]');
       let difficulty = '';
@@ -759,7 +769,7 @@ window.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('gameNature', gameNature);
       
       if(!mapName) mapName = 'default_map';
-      if(!privacy) privacy = 'عامة';
+      if(!privacy) privacy = 'public';
       
       // جمع قيم زمن المباراة من الفورم
       const matchTimerInputs = document.querySelectorAll('input[name="match-timer"]');
@@ -1055,9 +1065,10 @@ window.addEventListener('DOMContentLoaded', function() {
   
   // استرجاع الخصوصية
   if(savedSettings.privacy) {
+    const savedPrivacy = normalizePrivacyValue(savedSettings.privacy);
     const privacyInputs = document.querySelectorAll('input[name="privacy"]');
     privacyInputs.forEach(input => {
-      if(input.parentElement.textContent.trim() === savedSettings.privacy) {
+      if(normalizePrivacyValue(input.value) === savedPrivacy) {
         input.checked = true;
       }
     });
@@ -1367,9 +1378,7 @@ if(createMatchBtn) {
     // 2- اسم المستخدم الحالي
     const currentUser = localStorage.getItem('username') || 'لاعب مجهول';
     // 3- الخصوصية
-    const privacyInputs = document.querySelectorAll('input[name="privacy"]');
-    let privacy = '';
-    privacyInputs.forEach(input => { if(input.checked) privacy = input.parentElement.textContent.trim(); });
+    let privacy = getSelectedPrivacyValue();
     
     // الحصول على مستوى الصعوبة إن وجد
     const difficultyInputs = document.querySelectorAll('input[name="difficulty"]');
@@ -1378,7 +1387,7 @@ if(createMatchBtn) {
     
     // استخدام القيم الافتراضية إذا لم تكمل
     if(!mapName) mapName = 'default_map';
-    if(!privacy) privacy = 'عامة';
+    if(!privacy) privacy = 'public';
     
     // الحصول على طبيعة المعركة
     const gameNatureInputs = document.querySelectorAll('input[name="game-nature"]');
