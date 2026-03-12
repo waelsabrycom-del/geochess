@@ -59,8 +59,9 @@
   (function initializeWaitingRoomGameId() {
     function normalizeGameId(value) {
       const normalized = String(value || '').trim();
-      if (!normalized) return '';
-      if (normalized === 'undefined' || normalized === 'null' || normalized === 'NaN') return '';
+      if (!normalized || normalized === 'undefined' || normalized === 'null' || normalized === 'NaN') {
+        return '';
+      }
       return normalized;
     }
 
@@ -71,12 +72,13 @@
     const resolvedGameId = gameIdFromUrl || gameIdFromSession || gameIdFromLocal || '';
 
     window.getCurrentGameId = function getCurrentGameId() {
-      return normalizeGameId(localStorage.getItem('gameId')) || normalizeGameId(sessionStorage.getItem('gameId')) || normalizeGameId(params.get('gameId')) || '';
+      return normalizeGameId(params.get('gameId')) || normalizeGameId(sessionStorage.getItem('gameId')) || normalizeGameId(localStorage.getItem('gameId')) || '';
     };
 
     if (!gameIdFromLocal && localStorage.getItem('gameId')) {
       localStorage.removeItem('gameId');
     }
+
     if (!gameIdFromSession && sessionStorage.getItem('gameId')) {
       sessionStorage.removeItem('gameId');
     }
@@ -573,7 +575,7 @@ window.addEventListener('DOMContentLoaded', function() {
   const currentUserId = parseInt(localStorage.getItem('userId'), 10);
   const urlParams = new URLSearchParams(window.location.search);
   const gameIdFromUrl = urlParams.get('gameId');
-  const gameId = localStorage.getItem('gameId') || sessionStorage.getItem('gameId') || gameIdFromUrl;
+  const gameId = window.getCurrentGameId ? window.getCurrentGameId() : (gameIdFromUrl || sessionStorage.getItem('gameId') || localStorage.getItem('gameId'));
   const API_URL = `${window.location.origin}/api`;
 
   // مزامنة gameId إذا أتى من رابط المشاركة
@@ -654,7 +656,7 @@ window.addEventListener('DOMContentLoaded', function() {
   const currentUserId = parseInt(localStorage.getItem('userId'), 10);
   const urlParams = new URLSearchParams(window.location.search);
   const gameIdFromUrl = urlParams.get('gameId');
-  const gameId = localStorage.getItem('gameId') || sessionStorage.getItem('gameId') || gameIdFromUrl;
+  const gameId = window.getCurrentGameId ? window.getCurrentGameId() : (gameIdFromUrl || sessionStorage.getItem('gameId') || localStorage.getItem('gameId'));
   const API_URL = `${window.location.origin}/api`;
 
   // مزامنة gameId إذا أتى من رابط المشاركة

@@ -314,7 +314,7 @@ function normalizeWaitingRoomGameId(value) {
 }
 
 function buildWaitingRoomUrl(gameId) {
-  const normalizedGameId = normalizeWaitingRoomGameId(gameId) || normalizeWaitingRoomGameId(localStorage.getItem('gameId'));
+  const normalizedGameId = normalizeWaitingRoomGameId(gameId);
   return normalizedGameId
     ? `غرفة الانتظار.html?gameId=${encodeURIComponent(normalizedGameId)}`
     : 'غرفة الانتظار.html';
@@ -869,6 +869,13 @@ window.addEventListener('DOMContentLoaded', function() {
       const guestColor = playerColor === 'white' ? 'black' : 'white';
       
       if (userId) {
+        const parsedHostId = parseInt(userId, 10);
+        if (!Number.isInteger(parsedHostId) || parsedHostId <= 0) {
+          alert('تعذر تحديد هوية المستخدم. يرجى تسجيل الدخول مرة أخرى.');
+          window.location.href = 'تسجيل دخول.html';
+          return;
+        }
+
         fetch(`${API_URL}/games/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -884,41 +891,31 @@ window.addEventListener('DOMContentLoaded', function() {
         })
         .then(res => res.json())
         .then(result => {
-          if (result.success) {
-            console.log('✅ تم إنشاء المباراة بنجاح:', result.gameId);
-            localStorage.setItem('gameId', result.gameId);
-            localStorage.setItem('adminMode_' + result.gameId, 'true');
-            console.log('✅ حفظ adminMode_' + result.gameId);
-          } else {
-            console.warn('⚠️ فشل إنشاء المباراة:', result.message);
+          const createdGameId = normalizeWaitingRoomGameId(result?.gameId);
+          if (!result?.success || !createdGameId) {
+            console.warn('⚠️ فشل إنشاء المباراة:', result?.message);
+            alert(result?.message || 'فشل إنشاء المباراة، حاول مرة أخرى.');
+            return;
           }
+
+          console.log('✅ تم إنشاء المباراة بنجاح:', createdGameId);
+          localStorage.setItem('gameId', createdGameId);
+          sessionStorage.setItem('gameId', createdGameId);
+          localStorage.setItem('adminMode_' + createdGameId, 'true');
+          console.log('✅ حفظ adminMode_' + createdGameId);
+
           setTimeout(() => {
-            window.location.href = buildWaitingRoomUrl(result.gameId);
+            window.location.href = buildWaitingRoomUrl(createdGameId);
           }, 500);
         })
         .catch(err => {
           console.error('❌ خطأ في إنشاء المعركة:', err);
-          const gameId = localStorage.getItem('gameId') || ('game_' + Date.now());
-          if (!localStorage.getItem('gameId')) {
-            localStorage.setItem('gameId', gameId);
-          }
-          localStorage.setItem('adminMode_' + gameId, 'true');
-          console.log('✅ حفظ adminMode_' + gameId + ' (في حالة الخطأ)');
-          setTimeout(() => {
-            window.location.href = buildWaitingRoomUrl(gameId);
-          }, 500);
+          alert('حدث خطأ أثناء إنشاء المعركة. تأكد من الاتصال وحاول مرة أخرى.');
         });
       } else {
-        console.warn('⚠️ لا توجد خريطة محددة');
-        const gameId = localStorage.getItem('gameId') || ('game_' + Date.now());
-        if (!localStorage.getItem('gameId')) {
-          localStorage.setItem('gameId', gameId);
-        }
-        localStorage.setItem('adminMode_' + gameId, 'true');
-        console.log('✅ حفظ adminMode_' + gameId);
-        setTimeout(() => {
-          window.location.href = buildWaitingRoomUrl(gameId);
-        }, 500);
+        console.warn('⚠️ لا يوجد userId - إعادة توجيه لتسجيل الدخول');
+        alert('يجب تسجيل الدخول قبل إنشاء مباراة.');
+        window.location.href = 'تسجيل دخول.html';
       }
     };
   }
@@ -1549,10 +1546,12 @@ if(createMatchBtn) {
         console.log('Saving armyDistributionTime:', armyDistributionTime);
         console.log('Saving turnTimeSeconds:', turnTimeSeconds);
         console.log('نتيجة إنشاء المباراة:', result);
-        
-        if (result.success) {
-          localStorage.setItem('gameId', result.gameId);
-          console.log('تم إنشاء المباراة برقم:', result.gameId);
+
+        const createdGameId = normalizeWaitingRoomGameId(result?.gameId);
+        if (result.success && createdGameId) {
+          localStorage.setItem('gameId', createdGameId);
+          sessionStorage.setItem('gameId', createdGameId);
+          console.log('تم إنشاء المباراة برقم:', createdGameId);
           
           // إذا كانت مباراة بطولة، أرسل دعوات تلقائية
           const tournamentMatchStr = localStorage.getItem('tournamentMatch');
@@ -1572,7 +1571,7 @@ if(createMatchBtn) {
               });
 
               targetInvitees.forEach((targetUserId) => {
-                fetch(`${API_URL}/games/${result.gameId}/invite-player`, {
+                fetch(`${API_URL}/games/${createdGameId}/invite-player`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -1594,36 +1593,24 @@ if(createMatchBtn) {
               console.error('خطأ في معالجة بيانات البطولة:', parseErr);
             }
           }
-        } else {
-          console.error('فشل إنشاء المباراة:', result.message);
+          localStorage.setItem('adminMode_' + createdGameId, 'true');
+          console.log('✅ حفظ adminMode_' + createdGameId);
+          setTimeout(() => {
+            window.location.href = buildWaitingRoomUrl(createdGameId);
+          }, 500);
+          return;
         }
-        // الانتقال إلى صفحة غرفة الانتظار في جميع الحالات
-        // إذا لم يكن هناك gameId، استخدم مفتاح مؤقت
-        const gameId = localStorage.getItem('gameId') || ('game_' + Date.now());
-        if (!localStorage.getItem('gameId')) {
-          localStorage.setItem('gameId', gameId);
-        }
-        localStorage.setItem('adminMode_' + gameId, 'true');
-        console.log('✅ حفظ adminMode_' + gameId);
-        setTimeout(() => {
-          window.location.href = buildWaitingRoomUrl(gameId);
-        }, 500);
+
+        console.error('فشل إنشاء المباراة:', result?.message);
+        alert(result?.message || 'فشل إنشاء المباراة، حاول مرة أخرى.');
       })
       .catch(err => {
         console.error('خطأ في إنشاء المعركة:', err);
-        // الانتقال حتى لو حدث خطأ
-        // حفظ زمن توزيع خطة الجيش قبل الانتقال
-        localStorage.setItem('armyDistributionTime', armyDistributionTime);
-        localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
-        
-        setTimeout(() => {
-          window.location.href = buildWaitingRoomUrl(gameId);
-        }, 500);
+        alert('حدث خطأ أثناء إنشاء المعركة. تأكد من الاتصال وحاول مرة أخرى.');
       });
     } else {
       console.warn('لا يوجد userId');
-      // الانتقال إلى صفحة غرفة الانتظار
-      window.location.href = 'غرفة الانتظار.html';
+      window.location.href = 'تسجيل دخول.html';
     }
   };
 }
