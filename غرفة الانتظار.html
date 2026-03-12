@@ -573,17 +573,10 @@
 // معالج رابط الملف الشخصي - حذف اللعبة إذا كان المضيف يخرج
 window.addEventListener('DOMContentLoaded', function() {
   const currentUserId = parseInt(localStorage.getItem('userId'), 10);
-  const urlParams = new URLSearchParams(window.location.search);
-  const gameIdFromUrl = urlParams.get('gameId');
-  const gameId = window.getCurrentGameId ? window.getCurrentGameId() : (gameIdFromUrl || sessionStorage.getItem('gameId') || localStorage.getItem('gameId'));
   const API_URL = `${window.location.origin}/api`;
 
-  // مزامنة gameId إذا أتى من رابط المشاركة
-  if (gameIdFromUrl && !localStorage.getItem('gameId')) {
-    localStorage.setItem('gameId', gameIdFromUrl);
-  }
-  if (gameIdFromUrl && !sessionStorage.getItem('gameId')) {
-    sessionStorage.setItem('gameId', gameIdFromUrl);
+  function getResolvedGameId() {
+    return window.getCurrentGameId ? window.getCurrentGameId() : (new URLSearchParams(window.location.search).get('gameId') || sessionStorage.getItem('gameId') || localStorage.getItem('gameId') || '');
   }
   
   // البحث عن رابط الملف الشخصي في الشريط العلوي
@@ -594,15 +587,16 @@ window.addEventListener('DOMContentLoaded', function() {
     return;
   }
 
-  if(!gameId) {
-    console.log('ℹ️ gameId غير متوفر حالياً - سيتم الانتقال بدون حذف مباراة');
-    return;
-  }
-  
   console.log('✅ تم ربط event listener بزر الملف الشخصي');
   
   profileLink.addEventListener('click', async function(e) {
     e.preventDefault();
+    const gameId = getResolvedGameId();
+
+    if(!gameId) {
+      window.location.href = 'ملف اللاعب الشخصي.html';
+      return;
+    }
     
     console.log('📋 المستخدم يضغط زر الملف الشخصي');
     
@@ -654,17 +648,10 @@ window.addEventListener('DOMContentLoaded', function() {
 // معالج زر الرئيسية - حذف اللعبة إذا كان المضيف يخرج
 window.addEventListener('DOMContentLoaded', function() {
   const currentUserId = parseInt(localStorage.getItem('userId'), 10);
-  const urlParams = new URLSearchParams(window.location.search);
-  const gameIdFromUrl = urlParams.get('gameId');
-  const gameId = window.getCurrentGameId ? window.getCurrentGameId() : (gameIdFromUrl || sessionStorage.getItem('gameId') || localStorage.getItem('gameId'));
   const API_URL = `${window.location.origin}/api`;
 
-  // مزامنة gameId إذا أتى من رابط المشاركة
-  if (gameIdFromUrl && !localStorage.getItem('gameId')) {
-    localStorage.setItem('gameId', gameIdFromUrl);
-  }
-  if (gameIdFromUrl && !sessionStorage.getItem('gameId')) {
-    sessionStorage.setItem('gameId', gameIdFromUrl);
+  function getResolvedGameId() {
+    return window.getCurrentGameId ? window.getCurrentGameId() : (new URLSearchParams(window.location.search).get('gameId') || sessionStorage.getItem('gameId') || localStorage.getItem('gameId') || '');
   }
   
   // البحث عن رابط الرئيسية في الشريط العلوي
@@ -675,15 +662,16 @@ window.addEventListener('DOMContentLoaded', function() {
     return;
   }
 
-  if(!gameId) {
-    console.log('ℹ️ gameId غير متوفر حالياً - سيتم الانتقال بدون حذف مباراة');
-    return;
-  }
-  
   console.log('✅ تم ربط event listener بزر الرئيسية');
   
   homeLink.addEventListener('click', async function(e) {
     e.preventDefault();
+    const gameId = getResolvedGameId();
+
+    if(!gameId) {
+      window.location.href = 'index.html';
+      return;
+    }
     
     console.log('🏠 المستخدم يضغط زر الرئيسية');
     
