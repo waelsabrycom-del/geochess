@@ -901,6 +901,14 @@ window.addEventListener('DOMContentLoaded', function() {
         })
         .then(res => res.json())
         .then(result => {
+          if (result?.requireLogin) {
+            console.warn('⚠️ المستخدم غير موجود في قاعدة البيانات - إعادة توجيه لتسجيل الدخول');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('authToken');
+            alert(result.message || 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.');
+            window.location.href = 'تسجيل دخول.html';
+            return;
+          }
           const createdGameId = normalizeWaitingRoomGameId(result?.gameId);
           if (!result?.success || !createdGameId) {
             console.warn('⚠️ فشل إنشاء المباراة:', result?.message);
@@ -1549,6 +1557,14 @@ if(createMatchBtn) {
       })
       .then(res => res.json())
       .then(result => {
+        if (result?.requireLogin) {
+          console.warn('⚠️ المستخدم غير موجود - إعادة توجيه لتسجيل الدخول');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('authToken');
+          alert(result.message || 'انتهت جلستك. يرجى تسجيل الدخول مرة أخرى.');
+          window.location.href = 'تسجيل دخول.html';
+          return;
+        }
         // حفظ زمن توزيع خطة الجيش قبل الانتقال
         localStorage.setItem('armyDistributionTime', armyDistributionTime);
         localStorage.setItem('turnTimeSeconds', turnTimeSeconds);
