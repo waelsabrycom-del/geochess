@@ -72,6 +72,37 @@ async function initPostgresSchema() {
     `);
 
     await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS host_color TEXT;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS guest_color TEXT;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS admin_id INTEGER;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS admin_name TEXT;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS host_name TEXT;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS guest_name TEXT;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS placed_units_count INTEGER DEFAULT 0;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS placed_units_data TEXT;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS unit_counts_data TEXT;
+    `);
+    await query(`
+        ALTER TABLE games ADD COLUMN IF NOT EXISTS last_saved_at TIMESTAMP;
+    `);
+
+    await query(`
         CREATE TABLE IF NOT EXISTS game_players (
             id SERIAL PRIMARY KEY,
             game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
