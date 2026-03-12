@@ -136,14 +136,11 @@ app.get('/api/matchmaking/status', authenticateToken, async (req, res) => {
 });
 
 // API لإنشاء لعبة جديدة
-app.post('/api/games/create', (req, res) => {
+app.post('/api/games/create', async (req, res) => {
     const { host_id, game_name, map_name, map_size, game_settings, host_color, guest_color } = req.body;
 
     if (!host_id || !game_name || !map_name) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'البيانات المطلوبة غير كاملة' 
-        });
+        return res.status(400).json({ success: false, message: 'البيانات المطلوبة غير كاملة' });
     }
 
     const parsedHostId = parseInt(host_id, 10);
@@ -155,28 +152,49 @@ app.post('/api/games/create', (req, res) => {
         });
     }
 
-    // التحقق من وجود المستخدم في قاعدة البيانات أولاً
-    const checkUserExists = async () => {
-        if (isPostgresEnabled) {
-            try {
-                const result = await pgQuery(`SELECT id FROM users WHERE id = $1 LIMIT 1`, [parsedHostId]);
-                return result.rows.length > 0 ? { id: parsedHostId } : null;
-            } catch (pgErr) {
-                console.error('❌ خطأ PostgreSQL في التحقق من المستخدم:', pgErr.message);
-                return null;
-            }
-        }
-        return new Promise((resolve) => {
-            db.get(`SELECT id FROM users WHERE id = ?`, [parsedHostId], (err, row) => {
-                if (err) { console.error('❌ خطأ SQLite في التحقق من المستخدم:', err.message); resolve(null); }
-                else resolve(row || null);
-            });
-        });
-    };
+    const gameSettingsJson = game_settings ? JSON.stringify(game_settings) : null;
 
-    checkUserExists().then((userRow) => {
-        if (!userRow) {
-            console.warn(`⚠️ محاولة إنشاء مباراة بمعرّف مستخدم غير موجود: ${parsedHostId}`);
+    // ============ مسار PostgreSQL (Railway) ============
+    if (isPostgresEnabled) {
+        try {
+            const userCheck = await pgQuery(`SELECT id FROM users WHERE id = $1 LIMIT 1`, [parsedHostId]);
+            if (userCheck.rows.length === 0) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'حسابك غير موجود في قاعدة البيانات. يرجى تسجيل الدخول مرة أخرى.',
+                    requireLogin: true
+                });
+            }
+
+            console.log(`🟡 [PG] محاولة إنشاء مباراة جديدة: "${game_name}" للمستخدم ${parsedHostId}`);
+
+            // حذف المباراة القديمة بنفس الاسم (cascade أو يدوياً)
+            await pgQuery(`DELETE FROM game_invites WHERE game_id IN (SELECT id FROM games WHERE host_id = $1 AND game_name = $2)`, [parsedHostId, game_name]);
+            await pgQuery(`DELETE FROM game_players WHERE game_id IN (SELECT id FROM games WHERE host_id = $1 AND game_name = $2)`, [parsedHostId, game_name]);
+            await pgQuery(`DELETE FROM games WHERE host_id = $1 AND game_name = $2`, [parsedHostId, game_name]);
+
+            // إنشاء المباراة الجديدة
+            const insertResult = await pgQuery(
+                `INSERT INTO games (host_id, game_name, map_name, map_size, game_settings, host_color, guest_color, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, 'waiting') RETURNING id`,
+                [parsedHostId, game_name, map_name, map_size || 'medium', gameSettingsJson, host_color || 'white', guest_color || 'black']
+            );
+            const gameId = insertResult.rows[0].id;
+
+            // إضافة المضيف كلاعب
+            await pgQuery(`INSERT INTO game_players (game_id, user_id, player_side) VALUES ($1, $2, 'white')`, [gameId, parsedHostId]);
+
+            console.log(`🟢 [PG] تم إنشاء مباراة جديدة برقم: ${gameId}`);
+            return res.status(201).json({ success: true, message: 'تم إنشاء اللعبة بنجاح', gameId });
+        } catch (err) {
+            console.error('❌ [PG] خطأ في إنشاء المباراة:', err.message);
+            return res.status(500).json({ success: false, message: 'خطأ في إنشاء اللعبة: ' + err.message });
+        }
+    }
+
+    // ============ مسار SQLite (محلي) ============
+    db.get(`SELECT id FROM users WHERE id = ?`, [parsedHostId], (userErr, userRow) => {
+        if (userErr || !userRow) {
             return res.status(401).json({
                 success: false,
                 message: 'حسابك غير موجود في قاعدة البيانات. يرجى تسجيل الدخول مرة أخرى.',
@@ -184,99 +202,50 @@ app.post('/api/games/create', (req, res) => {
             });
         }
 
-    // 🔍 أولاً: حذف أي مباراة قديمة للمستخدم بنفس الاسم (تجنب الـ UNIQUE constraint)
-    console.log(`🟡 محاولة إنشاء مباراة جديدة: "${game_name}" للمستخدم ${parsedHostId}`);
-    
-    // حذف الدعوات أولاً (FOREIGN KEY reference)
-    db.run(
-        `DELETE FROM game_invites WHERE game_id IN (
-            SELECT id FROM games WHERE host_id = ? AND game_name = ?
-        )`,
-        [parsedHostId, game_name],
-        (deleteInvitesErr) => {
-            if (deleteInvitesErr) {
-                console.error('❌ خطأ حذف دعوات المباراة القديمة:', deleteInvitesErr.message);
-                // نكمل حتى لو فشل (قد لا توجد دعوات)
-            }
+        console.log(`🟡 محاولة إنشاء مباراة جديدة: "${game_name}" للمستخدم ${parsedHostId}`);
 
-            // ثم حذف لاعبي المباراة
+        db.run(
+            `DELETE FROM game_invites WHERE game_id IN (SELECT id FROM games WHERE host_id = ? AND game_name = ?)`,
+            [parsedHostId, game_name], () => {
             db.run(
-                `DELETE FROM game_players WHERE game_id IN (
-                    SELECT id FROM games WHERE host_id = ? AND game_name = ?
-                )`,
-                [parsedHostId, game_name],
-                (deletePlayersErr) => {
-                    if (deletePlayersErr) {
-                        console.error('❌ خطأ حذف لاعبي المباراة القديمة:', deletePlayersErr.message);
-                        // نكمل حتى لو فشل (قد لا توجد لاعبين)
-                    }
-
-                    // ثم حذف المباراة القديمة
-                    db.run(
-                        `DELETE FROM games WHERE host_id = ? AND game_name = ?`,
-                        [parsedHostId, game_name],
-                        (deleteGameErr) => {
-                            if (deleteGameErr) {
-                                console.error('❌ خطأ حذف المباراة القديمة:', deleteGameErr.message);
-                                return res.status(500).json({
-                                    success: false,
-                                    message: 'خطأ في حذف المباراة القديمة'
-                                });
-                            }
-
-                            if (deleteGameErr === undefined || deleteGameErr === null) {
-                                console.log('✅ تم حذف المباراة القديمة (إن وجدت)');
-                            }
-
-                            // 🟢 الآن إنشاء مباراة جديدة
-                            db.run(
-                                `INSERT INTO games (host_id, game_name, map_name, map_size, game_settings, host_color, guest_color, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting')`,
-                                [parsedHostId, game_name, map_name, map_size || 'medium', game_settings ? JSON.stringify(game_settings) : null, host_color || 'white', guest_color || 'black'],
-                                function(err) {
-                                    if (err) {
-                                        console.error('❌ خطأ إنشاء المباراة:', err.message);
-                                        return res.status(500).json({
-                                            success: false,
-                                            message: 'خطأ في إنشاء اللعبة: ' + err.message
-                                        });
-                                    }
-
-                                    const gameId = this.lastID;
-                                    console.log(`🟢 تم إنشاء مباراة جديدة برقم: ${gameId}`);
-
-                                    // إضافة المضيف كلاعب
-                                    db.run(
-                                        `INSERT INTO game_players (game_id, user_id, player_side) VALUES (?, ?, 'white')`,
-                                        [gameId, parsedHostId],
-                                        (err) => {
-                                            if (err) {
-                                                console.error('❌ خطأ إضافة المضيف:', err.message);
-                                                return res.status(500).json({
-                                                    success: false,
-                                                    message: 'خطأ في إضافة المضيف'
-                                                });
-                                            }
-
-                                            console.log(`✅ تم إضافة المضيف (${parsedHostId}) للمباراة (${gameId})`);
-                                            res.status(201).json({
-                                                success: true,
-                                                message: 'تم إنشاء اللعبة بنجاح',
-                                                gameId: gameId
-                                            });
-                                        }
-                                    );
-                                }
-                            );
+                `DELETE FROM game_players WHERE game_id IN (SELECT id FROM games WHERE host_id = ? AND game_name = ?)`,
+                [parsedHostId, game_name], () => {
+                db.run(
+                    `DELETE FROM games WHERE host_id = ? AND game_name = ?`,
+                    [parsedHostId, game_name],
+                    (deleteGameErr) => {
+                        if (deleteGameErr) {
+                            console.error('❌ خطأ حذف المباراة القديمة:', deleteGameErr.message);
+                            return res.status(500).json({ success: false, message: 'خطأ في حذف المباراة القديمة' });
                         }
-                    );
-                }
-            );
-        }
-    );
-    }).catch((checkErr) => {
-        console.error('❌ خطأ في التحقق من المستخدم:', checkErr.message);
-        return res.status(500).json({ success: false, message: 'خطأ في قاعدة البيانات' });
-    }); // end checkUserExists
+                        db.run(
+                            `INSERT INTO games (host_id, game_name, map_name, map_size, game_settings, host_color, guest_color, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting')`,
+                            [parsedHostId, game_name, map_name, map_size || 'medium', gameSettingsJson, host_color || 'white', guest_color || 'black'],
+                            function(err) {
+                                if (err) {
+                                    console.error('❌ خطأ إنشاء المباراة:', err.message);
+                                    return res.status(500).json({ success: false, message: 'خطأ في إنشاء اللعبة: ' + err.message });
+                                }
+                                const gameId = this.lastID;
+                                db.run(
+                                    `INSERT INTO game_players (game_id, user_id, player_side) VALUES (?, ?, 'white')`,
+                                    [gameId, parsedHostId],
+                                    (err) => {
+                                        if (err) {
+                                            console.error('❌ خطأ إضافة المضيف:', err.message);
+                                            return res.status(500).json({ success: false, message: 'خطأ في إضافة المضيف' });
+                                        }
+                                        console.log(`🟢 تم إنشاء مباراة جديدة برقم: ${gameId}`);
+                                        res.status(201).json({ success: true, message: 'تم إنشاء اللعبة بنجاح', gameId });
+                                    }
+                                );
+                            }
+                        );
+                    }
+                );
+            });
+        });
+    });
 });
 
 // API للحصول على قائمة الألعاب المتاحة
