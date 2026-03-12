@@ -23,6 +23,11 @@ function sqliteAll(sql, params = []) {
     });
 }
 
+async function getExistingSqliteTables() {
+    const rows = await sqliteAll("SELECT name FROM sqlite_master WHERE type = 'table'");
+    return new Set(rows.map((r) => String(r.name || '').trim()).filter(Boolean));
+}
+
 async function ensureSchema() {
     await pg.query(`
         CREATE TABLE IF NOT EXISTS users (
@@ -247,11 +252,33 @@ async function run() {
     console.log(`SQLite source: ${sqlitePath}`);
 
     try {
+        const existingTables = await getExistingSqliteTables();
         await ensureSchema();
-        await migrateUsers();
-        await migrateGames();
-        await migrateGamePlayers();
-        await migrateSessions();
+
+        if (existingTables.has('users')) {
+            await migrateUsers();
+        } else {
+            console.log('Skipping users migration: source SQLite table does not exist.');
+        }
+
+        if (existingTables.has('games')) {
+            await migrateGames();
+        } else {
+            console.log('Skipping games migration: source SQLite table does not exist.');
+        }
+
+        if (existingTables.has('game_players')) {
+            await migrateGamePlayers();
+        } else {
+            console.log('Skipping game_players migration: source SQLite table does not exist.');
+        }
+
+        if (existingTables.has('sessions')) {
+            await migrateSessions();
+        } else {
+            console.log('Skipping sessions migration: source SQLite table does not exist.');
+        }
+
         await resetSequences();
 
         console.log('Migration completed successfully.');

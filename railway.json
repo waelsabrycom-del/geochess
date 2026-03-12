@@ -5,7 +5,8 @@
   "deploy": {
     "restartPolicyType": "always",
     "restartPolicyMaxRetries": 5,
-    "numReplicas": 1
+    "numReplicas": 1,
+    "startCommand": "node server.js"
   }
 }
 
