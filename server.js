@@ -10,7 +10,7 @@ const { Server } = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { initPostgresSchema, isPostgresEnabled } = require('./services/postgres-service');
+const { initPostgresSchema, isPostgresEnabled, query: pgQuery } = require('./services/postgres-service');
 const redisService = require('./services/redis-service');
 const { initLiveWebSocketServer } = require('./realtime/live-ws');
 require('dotenv').config();
@@ -156,11 +156,25 @@ app.post('/api/games/create', (req, res) => {
     }
 
     // التحقق من وجود المستخدم في قاعدة البيانات أولاً
-    db.get(`SELECT id FROM users WHERE id = ?`, [parsedHostId], (userErr, userRow) => {
-        if (userErr) {
-            console.error('❌ خطأ في التحقق من المستخدم:', userErr.message);
-            return res.status(500).json({ success: false, message: 'خطأ في قاعدة البيانات' });
+    const checkUserExists = async () => {
+        if (isPostgresEnabled) {
+            try {
+                const result = await pgQuery(`SELECT id FROM users WHERE id = $1 LIMIT 1`, [parsedHostId]);
+                return result.rows.length > 0 ? { id: parsedHostId } : null;
+            } catch (pgErr) {
+                console.error('❌ خطأ PostgreSQL في التحقق من المستخدم:', pgErr.message);
+                return null;
+            }
         }
+        return new Promise((resolve) => {
+            db.get(`SELECT id FROM users WHERE id = ?`, [parsedHostId], (err, row) => {
+                if (err) { console.error('❌ خطأ SQLite في التحقق من المستخدم:', err.message); resolve(null); }
+                else resolve(row || null);
+            });
+        });
+    };
+
+    checkUserExists().then((userRow) => {
         if (!userRow) {
             console.warn(`⚠️ محاولة إنشاء مباراة بمعرّف مستخدم غير موجود: ${parsedHostId}`);
             return res.status(401).json({
@@ -259,7 +273,10 @@ app.post('/api/games/create', (req, res) => {
             );
         }
     );
-    }); // end db.get user check
+    }).catch((checkErr) => {
+        console.error('❌ خطأ في التحقق من المستخدم:', checkErr.message);
+        return res.status(500).json({ success: false, message: 'خطأ في قاعدة البيانات' });
+    }); // end checkUserExists
 });
 
 // API للحصول على قائمة الألعاب المتاحة
