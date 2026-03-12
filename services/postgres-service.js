@@ -93,6 +93,18 @@ async function initPostgresSchema() {
         );
     `);
 
+    await query(`
+        CREATE TABLE IF NOT EXISTS game_invites (
+            id SERIAL PRIMARY KEY,
+            game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+            from_user_id INTEGER NOT NULL REFERENCES users(id),
+            to_user_id INTEGER NOT NULL REFERENCES users(id),
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT NOW(),
+            responded_at TIMESTAMP
+        );
+    `);
+
     console.log('PostgreSQL schema ready');
 }
 

@@ -19,6 +19,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
+// === إعداد trust proxy لـ Railway وأي reverse proxy ===
+if (isProduction) {
+    app.set('trust proxy', 1);
+}
+
 // === أمان: HTTP Security Headers ===
 app.use(helmet({
     contentSecurityPolicy: false, // نعطله لأن المشروع يستخدم inline scripts
@@ -168,9 +173,7 @@ app.post('/api/games/create', async (req, res) => {
 
             console.log(`🟡 [PG] محاولة إنشاء مباراة جديدة: "${game_name}" للمستخدم ${parsedHostId}`);
 
-            // حذف المباراة القديمة بنفس الاسم (cascade أو يدوياً)
-            await pgQuery(`DELETE FROM game_invites WHERE game_id IN (SELECT id FROM games WHERE host_id = $1 AND game_name = $2)`, [parsedHostId, game_name]);
-            await pgQuery(`DELETE FROM game_players WHERE game_id IN (SELECT id FROM games WHERE host_id = $1 AND game_name = $2)`, [parsedHostId, game_name]);
+            // حذف المباراة القديمة بنفس الاسم (game_invites و game_players تُحذف تلقائياً بـ ON DELETE CASCADE)
             await pgQuery(`DELETE FROM games WHERE host_id = $1 AND game_name = $2`, [parsedHostId, game_name]);
 
             // إنشاء المباراة الجديدة
