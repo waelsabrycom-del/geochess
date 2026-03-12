@@ -252,7 +252,23 @@ app.post('/api/games/create', async (req, res) => {
 });
 
 // API للحصول على قائمة الألعاب المتاحة
-app.get('/api/games/available', (req, res) => {
+app.get('/api/games/available', async (req, res) => {
+    if (isPostgresEnabled) {
+        try {
+            const result = await pgQuery(`
+                SELECT g.*, u.username as host_name, u.avatar_url
+                FROM games g
+                JOIN users u ON g.host_id = u.id
+                WHERE g.status IN ('waiting', 'ready')
+                ORDER BY g.created_at DESC
+            `);
+            return res.json({ success: true, games: result.rows || [] });
+        } catch (err) {
+            console.error('❌ [PG] خطأ في جلب الألعاب:', err.message);
+            return res.status(500).json({ success: false, message: 'خطأ في قاعدة البيانات' });
+        }
+    }
+    // ...existing code...
     db.all(
         `SELECT g.*, u.username as host_name, u.avatar_url 
          FROM games g 
@@ -261,16 +277,9 @@ app.get('/api/games/available', (req, res) => {
          ORDER BY g.created_at DESC`,
         (err, games) => {
             if (err) {
-                return res.status(500).json({ 
-                    success: false, 
-                    message: 'خطأ في جلب الألعاب' 
-                });
+                return res.status(500).json({ success: false, message: 'خطأ في جلب الألعاب' });
             }
-
-            res.json({
-                success: true,
-                games: games || []
-            });
+            res.json({ success: true, games: games || [] });
         }
     );
 });
@@ -655,17 +664,34 @@ app.post('/api/games/:gameId/update-host', (req, res) => {
 });
 
 // API للحصول على بيانات مباراة محددة
-app.get('/api/games/:gameId', (req, res) => {
+app.get('/api/games/:gameId', async (req, res) => {
     const gameId = req.params.gameId;
+    if (isPostgresEnabled) {
+        try {
+            const result = await pgQuery(`SELECT * FROM games WHERE id = $1`, [gameId]);
+            const game = result.rows[0];
+            if (!game) {
+                return res.status(404).json({ success: false, message: 'المباراة غير موجودة' });
+            }
+            console.log(`📋 [PG] جلب بيانات اللعبة ${gameId}:`, {
+                host_id: game.host_id,
+                opponent_id: game.opponent_id,
+                status: game.status,
+                guest_kicked: game.guest_kicked
+            });
+            return res.json({ success: true, game });
+        } catch (err) {
+            console.error('❌ [PG] خطأ في جلب بيانات اللعبة:', err.message);
+            return res.status(500).json({ success: false, message: 'خطأ في قاعدة البيانات' });
+        }
+    }
+    // ...existing code...
     db.get(
         `SELECT * FROM games WHERE id = ?`,
         [gameId],
         (err, game) => {
             if (err || !game) {
-                return res.status(404).json({ 
-                    success: false, 
-                    message: 'المباراة غير موجودة' 
-                });
+                return res.status(404).json({ success: false, message: 'المباراة غير موجودة' });
             }
             console.log(`📋 جلب بيانات اللعبة ${gameId}:`, {
                 host_id: game.host_id,
@@ -673,10 +699,7 @@ app.get('/api/games/:gameId', (req, res) => {
                 status: game.status,
                 guest_kicked: game.guest_kicked
             });
-            res.json({
-                success: true,
-                game: game
-            });
+            res.json({ success: true, game });
         }
     );
 });
@@ -1532,7 +1555,7 @@ app.post('/api/games/:gameId/invite-player', (req, res) => {
     );
 });
 
-// API للرد على الدعوة (قبول/رفض)
+// API للرد على الدعوة (قبول/ رفض)
 app.post('/api/games/:gameId/invite-response', (req, res) => {
     const gameId = req.params.gameId;
     const { invite_id, to_user_id, response } = req.body; // response: 'accepted' أو 'rejected'
@@ -3113,7 +3136,7 @@ app.get('/api/statistics/game/:gameId', (req, res) => {
                 console.error('❌ خطأ في جلب إحصائيات المباراة:', err);
                 return res.status(500).json({
                     success: false,
-                    message: 'فشل جلب إحصائيات المباراة'
+                    message: 'فشل جلب الإحصائيات'
                 });
             }
 
@@ -3214,7 +3237,7 @@ app.get('/api/tournaments/:tournamentId/results', (req, res) => {
                 console.error('❌ خطأ في جلب نتائج البطولة:', err);
                 return res.status(500).json({
                     success: false,
-                    message: 'فشل جلب نتائج البطولة'
+                    message: 'فشل جلب النتائج'
                 });
             }
 
